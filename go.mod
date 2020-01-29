@@ -1,4 +1,4 @@
-module github.com/loggregator/metric-scraper
+module github.com/loggregator/metric-proxy
 
 go 1.13
 
