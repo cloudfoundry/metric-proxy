@@ -29,7 +29,7 @@ func main() {
 	s := grpc.NewServer(grpc.Creds(cfg.TLS.Credentials("log-cache")))
 	logcache_v1.RegisterEgressServer(s, c)
 
-	lis, err := net.Listen("tcp", ":8080")
+	lis, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

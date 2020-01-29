@@ -13,7 +13,7 @@ import (
 
 // Config is the configuration for a LogCache.
 type Config struct {
-	//Addr string `env:"ADDR, required, report"`
+	Addr string `env:"ADDR, required, report"`
 	APIServer string `env:"API_SERVER, required, report"`
 	Token string `env:"TOKEN, required, report"`
 	AppSelector string `env:"APP_SELECTOR, required, report"`
