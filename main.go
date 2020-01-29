@@ -1,15 +1,20 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"io"
+	"log"
+	"net"
 	"os"
 
+	"google.golang.org/grpc"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
+
+	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
+	"google.golang.org/grpc/reflection"
+
+	"github.com/loggregator/metric-scraper/pkg/metrics"
 )
 
 func main() {
@@ -22,41 +27,43 @@ func main() {
 		namespace = value
 	}
 
+	// TODO: handle errors
+	fetcher, _ := createMetricsFetcher(apiServer, token, namespace, appSelector)
+	c := &metrics.Proxy{
+		GetMetrics: fetcher,
+	}
+
+	s := grpc.NewServer()
+	logcache_v1.RegisterEgressServer(s, c)
+	reflection.Register(s)
+
+	lis, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	panic(s.Serve(lis))
+}
+
+func createMetricsFetcher(apiServer, token, namespace, appSelector string) (metrics.MetricsFetcher, error) {
 	restConfig := &rest.Config{
 		Host:        apiServer,
 		APIPath:     "/apis/metrics.k8s.io/v1beta1/pods",
 		BearerToken: token,
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,
-			// CAFile:   caCertPath,
 		},
 	}
 
-	metricsClient, _ := versioned.NewForConfig(restConfig)
-	var timeout int64 = 5
-	podMetrics, _ := metricsClient.MetricsV1beta1().PodMetricses(namespace).List(v1.ListOptions{
-		LabelSelector:       "app=" + appSelector,
-		TimeoutSeconds:      &timeout,
-	})
-
-	err := printMetrics(os.Stdout, podMetrics)
+	c, err := versioned.NewForConfig(restConfig)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-}
 
-func printMetrics(w io.Writer, podMetrics *v1beta1.PodMetricsList) error {
-	b := bytes.NewBuffer([]byte(""))
-	for _, podMetric := range podMetrics.Items {
-		b.WriteString(fmt.Sprintf("Metrics for pod: %s\n", podMetric.Name))
-		for _, container := range podMetric.Containers {
-			b.WriteString(fmt.Sprintf("\tcontainer: %s\n", container.Name))
-			containerCPU := container.Usage.Cpu()
-			containerMemory := container.Usage.Memory()
-			b.WriteString(fmt.Sprintf("\tcpu: %v\n", containerCPU))
-			b.WriteString(fmt.Sprintf("\tmemory: %v\n", containerMemory))
-		}
-	}
-	_, err := b.WriteTo(w)
-	return err
+	return func() (*v1beta1.PodMetricsList, error) {
+		var timeout int64 = 5
+		return c.MetricsV1beta1().PodMetricses(namespace).List(v1.ListOptions{
+			LabelSelector:  "app=" + appSelector,
+			TimeoutSeconds: &timeout,
+		})
+	}, nil
 }
