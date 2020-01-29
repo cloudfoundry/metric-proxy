@@ -3,39 +3,31 @@ package main
 import (
 	"log"
 	"net"
-	"os"
 
+	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 	"google.golang.org/grpc"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
-
-	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
-	"google.golang.org/grpc/reflection"
 
 	"github.com/loggregator/metric-scraper/pkg/metrics"
 )
 
 func main() {
-	apiServer := os.Getenv("APISERVER")
-	token := os.Getenv("TOKEN")
-	appSelector := os.Getenv("APP_SELECTOR")
-	// caCertPath := os.Getenv("CACERT_PATH")
-	namespace := "default"
-	if value, ok := os.LookupEnv("NAMESPACE"); ok {
-		namespace = value
+	cfg, err := LoadConfig()
+	if err != nil {
+		log.Fatalf("invalid configuration: %s", err)
 	}
 
 	// TODO: handle errors
-	fetcher, _ := createMetricsFetcher(apiServer, token, namespace, appSelector)
+	fetcher, _ := createMetricsFetcher(cfg)
 	c := &metrics.Proxy{
 		GetMetrics: fetcher,
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.Creds(cfg.TLS.Credentials("log-cache")))
 	logcache_v1.RegisterEgressServer(s, c)
-	reflection.Register(s)
 
 	lis, err := net.Listen("tcp", ":8080")
 	if err != nil {
@@ -44,11 +36,11 @@ func main() {
 	panic(s.Serve(lis))
 }
 
-func createMetricsFetcher(apiServer, token, namespace, appSelector string) (metrics.MetricsFetcher, error) {
+func createMetricsFetcher(cfg *Config) (metrics.MetricsFetcher, error) {
 	restConfig := &rest.Config{
-		Host:        apiServer,
+		Host:        cfg.APIServer,
 		APIPath:     "/apis/metrics.k8s.io/v1beta1/pods",
-		BearerToken: token,
+		BearerToken: cfg.Token,
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,
 		},
@@ -60,10 +52,9 @@ func createMetricsFetcher(apiServer, token, namespace, appSelector string) (metr
 	}
 
 	return func() (*v1beta1.PodMetricsList, error) {
-		var timeout int64 = 5
-		return c.MetricsV1beta1().PodMetricses(namespace).List(v1.ListOptions{
-			LabelSelector:  "app=" + appSelector,
-			TimeoutSeconds: &timeout,
+		return c.MetricsV1beta1().PodMetricses(cfg.Namespace).List(v1.ListOptions{
+			LabelSelector:  "app=" + cfg.AppSelector,
+			TimeoutSeconds: &cfg.QueryTimeout,
 		})
 	}, nil
 }

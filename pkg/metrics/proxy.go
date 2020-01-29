@@ -22,7 +22,7 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 			for k, v := range container.Usage {
 				if value, ok := v.AsInt64(); ok {
 					gauges[string(k)] = &loggregator_v2.GaugeValue{
-						Unit:  "",
+						Unit:  string(v.Format),
 						Value: float64(value),
 					}
 				}
@@ -64,5 +64,4 @@ func (m *Proxy) Meta(context.Context, *logcache_v1.MetaRequest) (*logcache_v1.Me
 
 type Proxy struct {
 	GetMetrics MetricsFetcher
-
 }

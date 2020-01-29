@@ -3,6 +3,7 @@ module github.com/loggregator/metric-scraper
 go 1.13
 
 require (
+	code.cloudfoundry.org/go-envstruct v1.5.0
 	code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
 	code.cloudfoundry.org/log-cache v2.3.1+incompatible
 	code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a // indirect
