@@ -22,7 +22,7 @@ func TestMetricsProxyRead(t *testing.T) {
 
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
-				"cpu":    *resource.NewQuantity(42, "nanocores"),
+				"cpu": *resource.NewScaledQuantity(42, resource.Nano),
 			}))
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
@@ -92,6 +92,66 @@ func TestMetricsProxyRead(t *testing.T) {
 			SourceId: "fake-source",
 		})
 		g.Expect(err).To(HaveOccurred())
+	})
+
+	t.Run("it parses BinarySI format", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		stop, err := startGRPCServer(
+			newFakeFetcher(corev1.ResourceList{
+				"memory": *resource.NewQuantity(420000, "BinarySI"),
+			}))
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(resp.Envelopes.Batch).To(HaveLen(1))
+		g.Expect(resp.Envelopes.Batch[0].SourceId).To(Equal("fake-source"))
+		g.Expect(resp.Envelopes.Batch[0].GetGauge().Metrics).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
+			"memory": {
+				Unit:  "bytes",
+				Value: 420000,
+			},
+		}))
+	})
+
+	t.Run("it parses DecimalSI format", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		stop, err := startGRPCServer(
+			newFakeFetcher(corev1.ResourceList{
+				"cpu": *resource.NewScaledQuantity(500000000, resource.Nano),
+			}))
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(resp.Envelopes.Batch).To(HaveLen(1))
+		g.Expect(resp.Envelopes.Batch[0].SourceId).To(Equal("fake-source"))
+		g.Expect(resp.Envelopes.Batch[0].GetGauge().Metrics).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
+			"cpu": {
+				Unit:  "nanocores",
+				Value: 500000000,
+			},
+		}))
 	})
 }
 

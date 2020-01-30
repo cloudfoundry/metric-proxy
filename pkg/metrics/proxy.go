@@ -61,12 +61,23 @@ func (m *Proxy) createLoggregatorEnvelope(
 
 func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[string]*loggregator_v2.GaugeValue {
 	var gauges = map[string]*loggregator_v2.GaugeValue{}
-	if value, ok := v.AsInt64(); ok {
+
+	switch v.Format {
+	case "BinarySI":
+		if value, ok := v.AsInt64(); ok {
+			gauges[string(k)] = &loggregator_v2.GaugeValue{
+				Unit:  "bytes",
+				Value: float64(value),
+			}
+		}
+	case "DecimalSI":
+		value := float64(v.ScaledValue(resource.Nano))
 		gauges[string(k)] = &loggregator_v2.GaugeValue{
-			Unit:  string(v.Format),
-			Value: float64(value),
+			Unit:  "nanocores",
+			Value: value,
 		}
 	}
+
 	return gauges
 }
 
