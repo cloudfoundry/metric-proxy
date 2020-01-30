@@ -36,7 +36,7 @@ func main() {
 	panic(s.Serve(lis))
 }
 
-func createMetricsFetcher(cfg *Config) (metrics.MetricsFetcher, error) {
+func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 	restConfig := &rest.Config{
 		Host:        cfg.APIServer,
 		APIPath:     "/apis/metrics.k8s.io/v1beta1/pods",
