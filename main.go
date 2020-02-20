@@ -24,6 +24,7 @@ func main() {
 	fetcher, _ := createMetricsFetcher(cfg)
 	c := &metrics.Proxy{
 		GetMetrics: fetcher,
+		AddEmptyDiskEnvelope: true,
 	}
 
 	s := grpc.NewServer(grpc.Creds(cfg.TLS.Credentials("log-cache")))

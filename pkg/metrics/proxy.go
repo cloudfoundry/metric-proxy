@@ -26,6 +26,10 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 			for k, v := range container.Usage {
 				envelopes = append(envelopes, m.createLoggregatorEnvelope(req, m.createGaugeMap(k, v)))
 			}
+
+			if m.AddEmptyDiskEnvelope {
+				envelopes = append(envelopes, m.createEmptyDiskEnvelope(req))
+			}
 		}
 	}
 
@@ -36,6 +40,14 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 	}
 
 	return resp, nil
+}
+
+func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest) *loggregator_v2.Envelope {
+	return m.createLoggregatorEnvelope(req,
+		m.createGaugeMap(
+			"disk",	*resource.NewQuantity(0, "BinarySI"),
+		),
+	)
 }
 
 func (m *Proxy) createLoggregatorEnvelope(
@@ -73,8 +85,8 @@ func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[strin
 	case "DecimalSI":
 		value := float64(v.ScaledValue(resource.Nano))
 		gauges[string(k)] = &loggregator_v2.GaugeValue{
-			Unit:  "nanocores",
-			Value: value,
+			Unit:  "percentage",
+			Value: value / 1e7,
 		}
 	}
 
@@ -91,4 +103,5 @@ func (m *Proxy) Meta(context.Context, *logcache_v1.MetaRequest) (*logcache_v1.Me
 
 type Proxy struct {
 	GetMetrics Fetcher
+	AddEmptyDiskEnvelope bool
 }

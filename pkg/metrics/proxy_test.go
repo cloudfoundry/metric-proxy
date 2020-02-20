@@ -22,8 +22,8 @@ func TestMetricsProxyRead(t *testing.T) {
 
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
-				"cpu": *resource.NewScaledQuantity(42, resource.Nano),
-			}))
+				"cpu": *resource.NewScaledQuantity(420000000, resource.Nano),
+			}), false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -41,8 +41,8 @@ func TestMetricsProxyRead(t *testing.T) {
 		g.Expect(resp.Envelopes.Batch[0].SourceId).To(Equal("fake-source"))
 		g.Expect(resp.Envelopes.Batch[0].GetGauge().Metrics).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
 			"cpu": {
-				Unit:  "nanocores",
-				Value: 42,
+				Unit:  "percentage",
+				Value: 42.0,
 			},
 		}))
 	})
@@ -56,7 +56,7 @@ func TestMetricsProxyRead(t *testing.T) {
 				"metric2": *resource.NewQuantity(42, "metric2_format"),
 				"metric3": *resource.NewQuantity(42, "metric3_format"),
 				"metric4": *resource.NewQuantity(42, "metric4_format"),
-			}))
+			}), false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -78,7 +78,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		stop, err := startGRPCServer(
-			newErrorFetcher("there is a fake error"),
+			newErrorFetcher("there is a fake error"), false,
 		)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
@@ -100,7 +100,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
 				"memory": *resource.NewQuantity(420000, "BinarySI"),
-			}))
+			}), false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -130,7 +130,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
 				"cpu": *resource.NewScaledQuantity(500000000, resource.Nano),
-			}))
+			}), false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -148,15 +148,42 @@ func TestMetricsProxyRead(t *testing.T) {
 		g.Expect(resp.Envelopes.Batch[0].SourceId).To(Equal("fake-source"))
 		g.Expect(resp.Envelopes.Batch[0].GetGauge().Metrics).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
 			"cpu": {
-				Unit:  "nanocores",
-				Value: 500000000,
+				Unit:  "percentage",
+				Value: 50.0,
+			},
+		}))
+	})
+
+	t.Run("it adds empty disk gauges to each envelope list", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		stop, err := startGRPCServer(newFakeFetcher(corev1.ResourceList{}), true)
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(resp.Envelopes.Batch).To(HaveLen(1))
+		g.Expect(resp.Envelopes.Batch[0].SourceId).To(Equal("fake-source"))
+		g.Expect(resp.Envelopes.Batch[0].GetGauge().Metrics).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
+			"disk": {
+				Unit:  "bytes",
+				Value: 0,
 			},
 		}))
 	})
 }
 
-func startGRPCServer(f Fetcher) (stop func(), err error) {
-	c := &Proxy{f}
+func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
+	c := &Proxy{f, addEnvelopes}
 
 	s := grpc.NewServer()
 	logcache_v1.RegisterEgressServer(s, c)
