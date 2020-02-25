@@ -24,7 +24,7 @@ func main() {
 	// TODO: handle errors
 	fetcher, _ := createMetricsFetcher(cfg)
 	c := &metrics.Proxy{
-		GetMetrics: fetcher,
+		GetMetrics:           fetcher,
 		AddEmptyDiskEnvelope: true,
 	}
 

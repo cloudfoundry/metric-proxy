@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"log"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -46,7 +45,7 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest) *loggregator_v2.Envelope {
 	return m.createLoggregatorEnvelope(req,
 		m.createGaugeMap(
-			"disk",	*resource.NewQuantity(0, "BinarySI"),
+			"disk", *resource.NewQuantity(0, "BinarySI"),
 		),
 	)
 }
@@ -103,6 +102,6 @@ func (m *Proxy) Meta(context.Context, *logcache_v1.MetaRequest) (*logcache_v1.Me
 }
 
 type Proxy struct {
-	GetMetrics Fetcher
+	GetMetrics           Fetcher
 	AddEmptyDiskEnvelope bool
 }
