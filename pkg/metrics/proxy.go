@@ -1,22 +1,23 @@
 package metrics
 
 import (
+	"log"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"golang.org/x/net/context"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 )
 
-type Fetcher func() (*v1beta1.PodMetricsList, error)
+type Fetcher func(appGuid string) (*v1beta1.PodMetricsList, error)
 
 func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache_v1.ReadResponse, error) {
 	var envelopes []*loggregator_v2.Envelope
-	podMetrics, err := m.GetMetrics()
+	podMetrics, err := m.GetMetrics(req.SourceId)
 	if err != nil {
 		return nil, err
 	}

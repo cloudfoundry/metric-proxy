@@ -23,7 +23,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
 				"cpu": *resource.NewScaledQuantity(420000000, resource.Nano),
-			}), false)
+			}).GetMetrics, false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -56,7 +56,7 @@ func TestMetricsProxyRead(t *testing.T) {
 				"metric2": *resource.NewQuantity(42, "metric2_format"),
 				"metric3": *resource.NewQuantity(42, "metric3_format"),
 				"metric4": *resource.NewQuantity(42, "metric4_format"),
-			}), false)
+			}).GetMetrics, false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -100,7 +100,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
 				"memory": *resource.NewQuantity(420000, "BinarySI"),
-			}), false)
+			}).GetMetrics, false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -130,7 +130,7 @@ func TestMetricsProxyRead(t *testing.T) {
 		stop, err := startGRPCServer(
 			newFakeFetcher(corev1.ResourceList{
 				"cpu": *resource.NewScaledQuantity(500000000, resource.Nano),
-			}), false)
+			}).GetMetrics, false)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -157,7 +157,7 @@ func TestMetricsProxyRead(t *testing.T) {
 	t.Run("it adds empty disk gauges to each envelope list", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
-		stop, err := startGRPCServer(newFakeFetcher(corev1.ResourceList{}), true)
+		stop, err := startGRPCServer(newFakeFetcher(corev1.ResourceList{}).GetMetrics, true)
 		g.Expect(err).ToNot(HaveOccurred())
 		defer stop()
 
@@ -179,6 +179,32 @@ func TestMetricsProxyRead(t *testing.T) {
 				Value: 0,
 			},
 		}))
+	})
+
+	t.Run("it calls GetMetrics with the app GUID", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		f := newFakeFetcher(corev1.ResourceList{
+			"cpu": *resource.NewScaledQuantity(420000000, resource.Nano),
+		})
+
+		stop, err := startGRPCServer(
+			f.GetMetrics, false)
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source-id",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Eventually(f.appGuid).Should(Receive(Equal("fake-source-id")))
+		g.Expect(resp.Envelopes.Batch).To(HaveLen(1))
 	})
 }
 
@@ -203,23 +229,34 @@ func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
 	return s.GracefulStop, nil
 }
 
-func newFakeFetcher(resources corev1.ResourceList) Fetcher {
-	return func() (*v1beta1.PodMetricsList, error) {
-		return &v1beta1.PodMetricsList{
-			TypeMeta: v1.TypeMeta{},
-			ListMeta: v1.ListMeta{},
-			Items: []v1beta1.PodMetrics{{
-				Containers: []v1beta1.ContainerMetrics{{
-					Name:  "test-container",
-					Usage: resources,
-				}},
-			}},
-		}, nil
+type fakeFetcher struct {
+	appGuid   chan string
+	resources corev1.ResourceList
+}
+
+func newFakeFetcher(resources corev1.ResourceList) *fakeFetcher {
+	return &fakeFetcher{
+		appGuid:   make(chan string, 1),
+		resources: resources,
 	}
 }
 
+func (f *fakeFetcher) GetMetrics(appGuid string) (*v1beta1.PodMetricsList, error) {
+	f.appGuid <- appGuid
+	return &v1beta1.PodMetricsList{
+		TypeMeta: v1.TypeMeta{},
+		ListMeta: v1.ListMeta{},
+		Items: []v1beta1.PodMetrics{{
+			Containers: []v1beta1.ContainerMetrics{{
+				Name:  "test-container",
+				Usage: f.resources,
+			}},
+		}},
+	}, nil
+}
+
 func newErrorFetcher(s string) Fetcher {
-	return func() (*v1beta1.PodMetricsList, error) {
+	return func(_ string) (*v1beta1.PodMetricsList, error) {
 		return nil, fmt.Errorf(s)
 	}
 }

@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
@@ -52,9 +53,9 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 		return nil, err
 	}
 
-	return func() (*v1beta1.PodMetricsList, error) {
+	return func(appGuid string) (*v1beta1.PodMetricsList, error) {
 		return c.MetricsV1beta1().PodMetricses(cfg.Namespace).List(v1.ListOptions{
-			LabelSelector:  "app=" + cfg.AppSelector,
+			LabelSelector:  fmt.Sprintf("%s=%s", cfg.AppSelector, appGuid),
 			TimeoutSeconds: &cfg.QueryTimeout,
 		})
 	}, nil
