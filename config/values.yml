@@ -8,6 +8,7 @@ images:
 
 metric_proxy_ca:
   crt: "" #! Base64-encoded ca for the metric-proxy-ca
+  key: "" #! Base64-encoded private key for the cert above
 
 metric_proxy:
   crt: "" #! Base64-encoded cert for the metric-proxy server requires CN of metric-proxy
