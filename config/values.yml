@@ -1,5 +1,5 @@
 #@data/values
-#---
+---
 system_domain: ""
 system_namespace: ""
 
@@ -7,7 +7,7 @@ images:
   metric_proxy: "oratos/metric-proxy"
 
 metric_proxy_ca:
-  crt: "" #! Base64-encoded ca for the metric-proxy
+  crt: "" #! Base64-encoded ca for the metric-proxy-ca
 
 metric_proxy:
   crt: "" #! Base64-encoded cert for the metric-proxy server requires CN of metric-proxy
