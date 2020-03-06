@@ -49,8 +49,8 @@ spec:
       volumes:
       - name: ca
         secret:
-          secretName: metric-proxy-ca
+          secretName: #@ data.values.metric_proxy.ca.secret_name
       - name: metric-proxy-certs
         secret:
-          secretName: metric-proxy
+          secretName: #@ data.values.metric_proxy.cert.secret_name
 
