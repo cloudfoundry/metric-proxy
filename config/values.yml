@@ -6,6 +6,10 @@ system_namespace: ""
 images:
   metric_proxy: "oratos/metric-proxy"
 
+metric_proxy:
+  tls_secret: "metric-proxy-certs"
+  ca_secret: "metric-proxy-ca"
+
 metric_proxy_ca:
   crt: "" #! Base64-encoded ca for the metric-proxy-ca
   key: "" #! Base64-encoded private key for the cert above
