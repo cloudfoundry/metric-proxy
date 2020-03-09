@@ -1,11 +1,12 @@
 # metric-proxy
 
-The metric-proxy acts as a translation layer between the Kubelet and CAPI for use
-in [cf-for-k8s](https://github.com/cloudfoundry/cf-for-k8s). When a request comes
-into the metric-proxy the proxy will scrape the kubelet of the apropriate Kubernetes
-pod(s) and format the results to match the existing [log-cache API](https://github.com/cloudfoundry/log-cache).
-This ensures developers can get metrics from existing versions of the cf cli when
-running commands `cf push` and  `cf app`.
+The metric-proxy acts as a translation layer between the Kubernetes Metrics
+Server and CAPI for use in
+[cf-for-k8s](https://github.com/cloudfoundry/cf-for-k8s). When a request comes
+into the metric-proxy the proxy will make a request to the Kube API and format
+the results to match the existing [log-cache API](https://github.com/cloudfoundry/log-cache)
+This ensures developers can get metrics from existing versions of the cf cli
+when running commands `cf push` and  `cf app`.
 
 ## Usage
 

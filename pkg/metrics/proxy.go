@@ -22,14 +22,26 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 	}
 
 	for _, podMetric := range podMetrics.Items {
+		metrics := map[string]resource.Quantity{}
+
 		for _, container := range podMetric.Containers {
 			for k, v := range container.Usage {
-				envelopes = append(envelopes, m.createLoggregatorEnvelope(req, m.createGaugeMap(k, v)))
+				if value, ok := metrics[string(k)]; ok {
+					value.Add(v)
+					metrics[string(k)] = value
+				} else {
+					metrics[string(k)] = v
+				}
 			}
 
-			if m.AddEmptyDiskEnvelope {
-				envelopes = append(envelopes, m.createEmptyDiskEnvelope(req))
-			}
+		}
+
+		for k, v := range metrics {
+			envelopes = append(envelopes, m.createLoggregatorEnvelope(req, m.createGaugeMap(v1.ResourceName(k), v)))
+		}
+
+		if m.AddEmptyDiskEnvelope {
+			envelopes = append(envelopes, m.createEmptyDiskEnvelope(req))
 		}
 	}
 

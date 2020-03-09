@@ -206,6 +206,70 @@ func TestMetricsProxyRead(t *testing.T) {
 		g.Eventually(f.appGuid).Should(Receive(Equal("fake-source-id")))
 		g.Expect(resp.Envelopes.Batch).To(HaveLen(1))
 	})
+
+	t.Run("it sums all cpu/mem metrics across containers in each pod", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		f := func(string) (*v1beta1.PodMetricsList, error) {
+			return &v1beta1.PodMetricsList{
+				TypeMeta: v1.TypeMeta{},
+				ListMeta: v1.ListMeta{},
+				Items: []v1beta1.PodMetrics{
+					{
+						Containers: []v1beta1.ContainerMetrics{
+							{
+								Name: "test-container-1",
+								Usage: corev1.ResourceList{
+									"cpu":    *resource.NewScaledQuantity(250000000, resource.Nano),
+									"memory": *resource.NewQuantity(420000, "BinarySI"),
+								},
+							},
+							{
+								Name: "test-container-2",
+								Usage: corev1.ResourceList{
+									"cpu":    *resource.NewScaledQuantity(500000000, resource.Nano),
+									"memory": *resource.NewQuantity(820000, "BinarySI"),
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		}
+
+		stop, err := startGRPCServer(f, false)
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(resp.Envelopes.Batch).To(HaveLen(2))
+		results := map[string]*loggregator_v2.GaugeValue{}
+		for _, e := range resp.Envelopes.Batch {
+			for k, v := range e.GetGauge().Metrics {
+				results[k] = v
+			}
+		}
+
+		g.Expect(results).To(BeEquivalentTo(map[string]*loggregator_v2.GaugeValue{
+			"cpu": {
+				Unit:  "percentage",
+				Value: 75.0,
+			},
+			"memory": {
+				Unit:  "bytes",
+				Value: 1240000,
+			},
+		}))
+	})
 }
 
 func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
