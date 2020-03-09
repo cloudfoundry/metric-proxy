@@ -82,4 +82,4 @@ for more details. This is reported as a percentage in the Cloud Foundry CLI.
 For backwards compatibility, `disk` usage is still presented in the output but
 will always return 0 as there is no equivalent pod metric in Kubernetes.
 
-![Image of API Flow](./metric-proxy.png)
+![Image of API Flow](./metric-proxy.jpg)
