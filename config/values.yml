@@ -5,6 +5,7 @@ system_namespace: ""
 
 images:
   metric_proxy: "oratos/metric-proxy"
+  cf_auth_proxy: "logcache/log-cache-cf-auth-proxy"
 
 metric_proxy:
   ca:
@@ -16,3 +17,6 @@ metric_proxy:
     crt: "" #! Base64-encoded cert for the metric-proxy server requires CN of metric-proxy
     key: "" #! Base64-encoded private key for the cert above
 
+client:
+  id: "" #! client id
+  secret: "" #! client secret

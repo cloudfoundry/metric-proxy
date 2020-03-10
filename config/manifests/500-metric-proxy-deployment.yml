@@ -19,14 +19,37 @@ spec:
     spec:
       serviceAccountName: metric-proxy
       containers:
-      - name: metric-proxy
-        image: #@ data.values.images.metric_proxy
+      - name: cf-auth-proxy
+        image: #@ data.values.images.cf_auth_proxy
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
+          - name: LOG_CACHE_GATEWAY_ADDR
+            value: https://localhost:8081
+          - name: CAPI_ADDR
+            value: #@ "http://capi.{}.svc.cluster.local:80".format(data.values.system_namespace)
+          - name: UAA_ADDR
+            value: #@ "http://uaa.{}.svc.cluster.local:8080".format(data.values.system_namespace)
+          - name: UAA_CLIENT_ID
+            value: #@ data.values.client.id
+          - name: UAA_CLIENT_SECRET
+            value: #@ data.values.client.secret
+        volumeMounts:
+          - mountPath: /ca
+            name: ca
+            readOnly: true
+          - mountPath: /metrics-certs
+            name: metrics-certs
+            readOnly: true
+      - name: metric-proxy
+        image: #@ data.values.images.metric_proxy
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+        env:
         - name: ADDR
-          value: :8080
+          value: :8081
         - name: APP_SELECTOR
           value: cloudfoundry.org/app_guid
         - name: NAMESPACE
@@ -53,4 +76,6 @@ spec:
       - name: metric-proxy-certs
         secret:
           secretName: #@ data.values.metric_proxy.cert.secret_name
-
+      - name: metrics-certs
+        secret:
+          secretName: log-cache-metrics
