@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"regexp"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -25,15 +26,17 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 		metrics := map[string]resource.Quantity{}
 
 		for _, container := range podMetric.Containers {
-			for k, v := range container.Usage {
-				if value, ok := metrics[string(k)]; ok {
-					value.Add(v)
-					metrics[string(k)] = value
-				} else {
-					metrics[string(k)] = v
+			match, _ := regexp.MatchString("istio\\-.*", container.Name)
+			if match != true {
+				for k, v := range container.Usage {
+					if value, ok := metrics[string(k)]; ok {
+						value.Add(v)
+						metrics[string(k)] = value
+					} else {
+						metrics[string(k)] = v
+					}
 				}
 			}
-
 		}
 
 		for k, v := range metrics {
