@@ -8,7 +8,9 @@ function set_pipeline {
     vault read -field=vars_file /secret/concourse/main/metric-proxy-pipeline > $metric_proxy_creds_file
     fly -t loggregator set-pipeline -p metric-proxy \
         -l "${metric_proxy_creds_file}" \
-        -c "${SCRIPT_DIR}/validation.yml"
+        -c "${SCRIPT_DIR}/validation.yml" \
+        -y "ci_k8s_loggr_gcp_service_account_json"="$(lpass show --note 'Shared-Loggregator (Pivotal Only)/GCP Service Account Key')" \
+        -y "ci_k8s_loggr_gcp_project_name"="cff-loggregator"
 }
 
 function sync_fly {

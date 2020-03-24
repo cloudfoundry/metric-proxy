@@ -30,29 +30,29 @@ jobs:
       - get: metric-proxy
         trigger: true
       - get: metric-proxy-docker
-    # - in_parallel:
-    #   - task: delete-cf
-    #     config:
-    #       platform: linux
-    #       image_resource:
-    #         type: docker-image
-    #         source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
-    #       run:
-    #         path: /bin/bash
-    #         args:
-    #         - -ecx
-    #         - |
-    #           export KUBECONFIG=kube-config.yml
-    #           gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
-    #           gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
-    #           kapp delete -a cf --yes
-    # # Puts do an implicit check so this builds the image and immediately makes
-    # # it available to the next task and dockerhub
-    #   - put: metric-proxy-docker
-    #     params:
-    #       additional_tags: metric-proxy/dockertags
-    #       dockerfile: metric-proxy/Dockerfile
-    #       build: metric-proxy
+    - in_parallel:
+      - task: delete-cf
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
+          run:
+            path: /bin/bash
+            args:
+            - -ecx
+            - |
+              export KUBECONFIG=kube-config.yml
+              gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
+              gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
+              kapp delete -a cf --yes
+    # Puts do an implicit check so this builds the image and immediately makes
+    # it available to the next task and dockerhub
+      - put: metric-proxy-docker
+        params:
+          additional_tags: metric-proxy/dockertags
+          dockerfile: metric-proxy/Dockerfile
+          build: metric-proxy
     - task: vendir-metrics
       file: metric-proxy/ci/vendir-metrics.yml
     - task: install-cf
@@ -73,20 +73,21 @@ jobs:
           args:
           - -ecx
           - |
-            export KUBECONFIG=kube-config.yml
-            gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
-            gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
+            # export KUBECONFIG=kube-config.yml
+            # gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
+            # gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
 
-            cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
-            echo "Generating install values..."
-            cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g <(echo '((ci_k8s_gcp_service_account_json))') > cf-install-values.yml
-            echo "Installing CF..."
-            cf-for-k8s-with-metrics/bin/install-cf.sh cf-install-values.yml
-            bosh interpolate --path /cf_admin_password cf-install-values.yml > env-metadata/cf-admin-password.txt
+            # cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
+            # echo "Generating install values..."
+            # cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g <(echo '((ci_k8s_gcp_service_account_json))') > cf-install-values.yml
+            # echo "Installing CF..."
+            # cf-for-k8s-with-metrics/bin/install-cf.sh cf-install-values.yml
+            # bosh interpolate --path /cf_admin_password cf-install-values.yml > env-metadata/cf-admin-password.txt
             echo "${DNS_DOMAIN}" > env-metadata/dns-domain.txt
             echo "Configuring DNS..."
+            gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_loggr_gcp_service_account_json))') --project='((ci_k8s_loggr_gcp_project_name))' 1>/dev/null 2>&1
             cf-for-k8s-with-metrics/hack/update-gcp-dns.sh "${DNS_DOMAIN}" "${DNS_ZONE_NAME}"
-
+            gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
     - task: run-smoke-test
       config:
         platform: linux
