@@ -2,7 +2,7 @@ resources:
 - name: cf-for-k8s
   type: git
   source:
-    branch: master
+    branch: metric-proxy
     uri: git@github.com:cloudfoundry/cf-for-k8s
     private_key: ((oratos-bot-private-key))
 
@@ -79,7 +79,7 @@ jobs:
 
             cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
             echo "Generating install values..."
-            cf-for-k8s-with-metrics/hack/generate-values.sh "${DNS_DOMAIN}" > cf-install-values.yml
+            cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g <(echo '((ci_k8s_gcp_service_account_json))') > cf-install-values.yml
             echo "Installing CF..."
             cf-for-k8s-with-metrics/bin/install-cf.sh cf-install-values.yml
             bosh interpolate --path /cf_admin_password cf-install-values.yml > env-metadata/cf-admin-password.txt
