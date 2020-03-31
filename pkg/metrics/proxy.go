@@ -15,6 +15,11 @@ import (
 
 type Fetcher func(appGuid string) (*v1beta1.PodMetricsList, error)
 
+type Proxy struct {
+	GetMetrics           Fetcher
+	AddEmptyDiskEnvelope bool
+}
+
 func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache_v1.ReadResponse, error) {
 	var envelopes []*loggregator_v2.Envelope
 	podMetrics, err := m.GetMetrics(req.SourceId)
@@ -23,22 +28,7 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 	}
 
 	for _, podMetric := range podMetrics.Items {
-		metrics := map[string]resource.Quantity{}
-
-		for _, container := range podMetric.Containers {
-			isIstio, _ := regexp.MatchString("istio\\-.*", container.Name)
-			if isIstio {
-				continue
-			}
-			for k, v := range container.Usage {
-				if value, ok := metrics[string(k)]; ok {
-					value.Add(v)
-					metrics[string(k)] = value
-				} else {
-					metrics[string(k)] = v
-				}
-			}
-		}
+		metrics := aggregateContainerMetrics(podMetric.Containers)
 
 		for k, v := range metrics {
 			envelopes = append(envelopes, m.createLoggregatorEnvelope(req, m.createGaugeMap(v1.ResourceName(k), v)))
@@ -56,6 +46,39 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 	}
 
 	return resp, nil
+}
+
+func (m *Proxy) Meta(context.Context, *logcache_v1.MetaRequest) (*logcache_v1.MetaResponse, error) {
+	metaInfo := make(map[string]*logcache_v1.MetaInfo)
+
+	return &logcache_v1.MetaResponse{
+		Meta: metaInfo,
+	}, nil
+}
+
+func aggregateContainerMetrics(containers []v1beta1.ContainerMetrics) map[string]resource.Quantity {
+	metrics := map[string]resource.Quantity{}
+
+	for _, container := range containers {
+		if isIstio(container.Name) {
+			continue
+		}
+		for k, v := range container.Usage {
+			if value, ok := metrics[string(k)]; ok {
+				value.Add(v)
+				metrics[string(k)] = value
+			} else {
+				metrics[string(k)] = v
+			}
+		}
+	}
+
+	return metrics
+}
+
+func isIstio(podName string) bool {
+	b, _ := regexp.MatchString("istio\\-.*", podName)
+	return b
 }
 
 func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest) *loggregator_v2.Envelope {
@@ -107,17 +130,4 @@ func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[strin
 	}
 
 	return gauges
-}
-
-func (m *Proxy) Meta(context.Context, *logcache_v1.MetaRequest) (*logcache_v1.MetaResponse, error) {
-	metaInfo := make(map[string]*logcache_v1.MetaInfo)
-
-	return &logcache_v1.MetaResponse{
-		Meta: metaInfo,
-	}, nil
-}
-
-type Proxy struct {
-	GetMetrics           Fetcher
-	AddEmptyDiskEnvelope bool
 }

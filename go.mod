@@ -1,4 +1,4 @@
-module github.com/loggregator/metric-proxy
+module code.cloudfoundry.org/metric-proxy
 
 go 1.13
 
@@ -7,7 +7,6 @@ require (
 	code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
 	code.cloudfoundry.org/log-cache v2.3.1+incompatible
 	code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a // indirect
-	github.com/gorilla/mux v1.7.3
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
 	github.com/onsi/gomega v1.7.0
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
