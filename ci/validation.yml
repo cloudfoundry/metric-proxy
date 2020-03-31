@@ -20,6 +20,7 @@ resources:
     password: ((oratos-docker.password))
     repository: oratos/metric-proxy
     tag: pipeline-test
+
 jobs:
   - name: run-tests-on-cf-for-k8s-pr
     public: true
