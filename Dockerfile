@@ -32,7 +32,7 @@ RUN cd /metric-proxy && go build \
 FROM $BASE_IMAGE
 
 RUN apt update && \
-    apt install --no-install-recommends -y ca-certificates && \
+    apt install --no-install-recommends -y ca-certificates curl && \
     update-ca-certificates && \
     apt-get clean
 

@@ -12,4 +12,6 @@ spec:
     - protocol: TCP
       port: 8080
       name: https
-
+    - protocol: TCP
+      port: 9090
+      name: https-metrics

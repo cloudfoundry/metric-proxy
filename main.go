@@ -5,54 +5,47 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
+	"os"
 	"time"
 
 	"code.cloudfoundry.org/go-envstruct"
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 	"code.cloudfoundry.org/metric-proxy/pkg/metrics"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metricRegistry "code.cloudfoundry.org/go-metric-registry"
 	"google.golang.org/grpc"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-var requestDurations = prometheus.NewHistogram(prometheus.HistogramOpts{
-	Name:    "request_duration_seconds",
-	Help:    "gPRC request duration distribution",
-	Buckets: prometheus.ExponentialBuckets(0.005, 2, 12),
-})
-
-func init() {
-	prometheus.MustRegister(requestDurations)
-}
+var requestDurations metricRegistry.Histogram
 
 func main() {
+	loggr := log.New(os.Stderr, "", log.LstdFlags)
 	cfg, err := LoadConfig()
 	if err != nil {
-		log.Fatalf("invalid configuration: %s", err)
+		loggr.Fatalf("invalid configuration: %s", err)
 	}
 
-	log.Println("starting metric-proxy...")
-	defer log.Println("exiting metric-proxy...")
-	envstruct.WriteReport(cfg)
+	loggr.Println("starting metric-proxy...")
+	defer loggr.Println("exiting metric-proxy...")
+
+	err = envstruct.WriteReport(cfg)
+	if err != nil {
+		loggr.Fatalf("cannot report envstruct config: %v", err)
+	}
 
 	fetcher, err := createMetricsFetcher(cfg)
 	if err != nil {
-		log.Fatalf("cannot initialize metric fetcher: %v", err)
+		loggr.Fatalf("cannot initialize metric fetcher: %v", err)
 	}
-
 	c := &metrics.Proxy{
 		GetMetrics:           fetcher,
 		AddEmptyDiskEnvelope: true,
 	}
-
-	startMetricsEndpoint()
+	setupAndStartMetricServer(loggr)
 
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(requestTimer),
@@ -62,9 +55,24 @@ func main() {
 
 	lis, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		loggr.Fatalf("failed to listen: %v", err)
 	}
 	panic(s.Serve(lis))
+}
+
+func setupAndStartMetricServer(loggr *log.Logger) {
+	m := metricRegistry.NewRegistry(
+		loggr,
+		metricRegistry.WithServer(
+			9090,
+		),
+	)
+
+	requestDurations = m.NewHistogram(
+		"request_duration_seconds",
+		"gPRC request duration distribution",
+		[]float64{0.005, 2, 12},
+	)
 }
 
 func requestTimer(ctx context.Context,
@@ -100,18 +108,4 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 			TimeoutSeconds: &cfg.QueryTimeout,
 		})
 	}, nil
-}
-
-func startMetricsEndpoint() {
-	lis, err := net.Listen("tcp", "localhost:9090")
-	if err != nil {
-		log.Printf("unable to start monitor endpoint: %s", err)
-	}
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-	log.Printf("starting monitor endpoint on http://%s/metrics\n", lis.Addr().String())
-	go func() {
-		err = http.Serve(lis, mux)
-		log.Printf("error starting the monitor server: %s", err)
-	}()
 }
