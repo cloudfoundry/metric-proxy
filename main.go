@@ -103,7 +103,7 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 }
 
 func startMetricsEndpoint() {
-	lis, err := net.Listen("tcp", "localhost:9090")
+	lis, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		log.Printf("unable to start monitor endpoint: %s", err)
 	}
