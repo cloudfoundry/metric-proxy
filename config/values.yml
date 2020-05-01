@@ -6,6 +6,9 @@ system_namespace: ""
 images:
   metric_proxy: "oratos/metric-proxy@sha256:fd2f5bad16596919d387c1374ee794e00329af7327f5aafd74d3e546e94180b0"
 
+metrics_server:
+  enable: ""
+
 metric_proxy:
   ca:
     secret_name: "metric-proxy-ca"
