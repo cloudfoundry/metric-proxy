@@ -10,7 +10,7 @@ require (
 	code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
 	github.com/onsi/gomega v1.7.0
-	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/client_golang v1.5.1 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect

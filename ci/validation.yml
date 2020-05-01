@@ -1,3 +1,10 @@
+resource_types:
+- name: vault
+  type: docker-image
+  source:
+    repository: oratos/vault-resource
+    tag: latest
+
 resources:
 - name: cf-for-k8s
   type: git
@@ -21,6 +28,14 @@ resources:
     repository: oratos/metric-proxy
     tag: pipeline-test
 
+- name: denver-metric-proxy-pipeline-vars
+  type: vault
+  source:
+    url: https://vault.oratos.ci.cf-app.com
+    role_id: ((vault.role_id))
+    secret_id: ((vault.secret_id))
+    path: /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars
+
 jobs:
   - name: run-tests-on-cf-for-k8s-pr
     public: true
@@ -31,6 +46,7 @@ jobs:
       - get: metric-proxy
         trigger: true
       - get: metric-proxy-docker
+      - get: denver-metric-proxy-pipeline-vars
     - in_parallel:
       - task: delete-cf
         config:
@@ -66,6 +82,7 @@ jobs:
           - name: cf-for-k8s-with-metrics
         outputs:
         - name: env-metadata
+        - name: vars
         params:
           DNS_DOMAIN: ((ci_k8s_domain))
           DNS_ZONE_NAME: ((ci_k8s_dns_zone_name))
@@ -80,13 +97,18 @@ jobs:
             gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
             cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
             echo "Generating install values..."
-            cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g sa.json > cf-install-values.yml
+            cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g sa.json > vars/cf-install-values.yml
+            # echo "Writing cf-install-values.yml to vault"
+            # vault write /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars vars_file=@vars/cf-install-values.yml
             echo "Installing CF..."
-            cf-for-k8s-with-metrics/bin/install-cf.sh cf-install-values.yml
-            bosh interpolate --path /cf_admin_password cf-install-values.yml > env-metadata/cf-admin-password.txt
+            cf-for-k8s-with-metrics/bin/install-cf.sh vars/cf-install-values.yml
+            bosh interpolate --path /cf_admin_password vars/cf-install-values.yml > env-metadata/cf-admin-password.txt
             echo "${DNS_DOMAIN}" > env-metadata/dns-domain.txt
             echo "Configuring DNS..."
             cf-for-k8s-with-metrics/hack/update-gcp-dns.sh "${DNS_DOMAIN}" "${DNS_ZONE_NAME}"
+    - put: denver-metric-proxy-pipeline-vars
+      params:
+        data: vars
     - task: run-smoke-test
       config:
         platform: linux
@@ -108,20 +130,3 @@ jobs:
             export SMOKE_TEST_PASSWORD=$(cat env-metadata/cf-admin-password.txt)
             export SMOKE_TEST_SKIP_SSL=true
             cf-for-k8s-with-metrics/hack/run-smoke-tests.sh
-
-    - task: delete-cf
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
-        run:
-          path: /bin/bash
-          args:
-          - -ec
-          - |
-            export KUBECONFIG=kube-config.yml
-            gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
-            gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
-
-            kapp delete -a cf --yes
