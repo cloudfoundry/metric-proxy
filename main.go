@@ -102,9 +102,9 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 		return nil, err
 	}
 
-	return func(appGuid string) (*v1beta1.PodMetricsList, error) {
+	return func(guid string) (*v1beta1.PodMetricsList, error) {
 		return c.MetricsV1beta1().PodMetricses(cfg.Namespace).List(v1.ListOptions{
-			LabelSelector:  fmt.Sprintf("%s=%s", cfg.AppSelector, appGuid),
+			LabelSelector:  fmt.Sprintf("%s=%s", cfg.AppSelector, guid),
 			TimeoutSeconds: &cfg.QueryTimeout,
 		})
 	}, nil
