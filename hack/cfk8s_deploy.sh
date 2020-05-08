@@ -39,7 +39,7 @@ docker push ${image_name}
 #  --var "API_SERVER=https://10.39.240.1:443" \
 #  --var "TOKEN=${token}" \
 #  --var "ADDR=:8080" \
-#  --var "APP_SELECTOR=cloudfoundry.org/guid" \
+#  --var "APP_SELECTOR=cloudfoundry.org/app_guid" \
 #  --var "NAMESPACE=cf-workloads" \
 #  --var "QUERY_TIMEOUT=5" \
 #  metric-proxy
