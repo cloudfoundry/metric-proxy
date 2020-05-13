@@ -13,7 +13,7 @@ import (
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 )
 
-type Fetcher func(appGuid string) (*v1beta1.PodMetricsList, error)
+type Fetcher func(processGuid string) (*v1beta1.PodMetricsList, error)
 
 type Proxy struct {
 	GetMetrics           Fetcher
