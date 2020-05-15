@@ -101,7 +101,9 @@ jobs:
             # echo "Writing cf-install-values.yml to vault"
             # vault write /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars vars_file=@vars/cf-install-values.yml
             echo "Installing CF..."
-            cf-for-k8s-with-metrics/bin/install-cf.sh vars/cf-install-values.yml
+            ytt -f cf-for-k8s-with-metrics/config -f vars/cf-install-values.yml > /tmp/cf-for-k8s-rendered.yml
+            kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y
+
             bosh interpolate --path /cf_admin_password vars/cf-install-values.yml > env-metadata/cf-admin-password.txt
             echo "${DNS_DOMAIN}" > env-metadata/dns-domain.txt
             echo "Configuring DNS..."
