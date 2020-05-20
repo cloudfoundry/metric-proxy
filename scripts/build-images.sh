@@ -15,8 +15,8 @@ function buildAndReplaceImage {
     fi
     docker push $DOCKER_ORG/$image:latest
 
-    imageRef="$(docker image inspect $DOCKER_ORG/$image:latest --format '{{index .Id}}')"
-    sed -i'' -e "s| $yttValuesRef:.*| $yttValuesRef: \"$DOCKER_ORG/$image@$imageRef\"|" ${REPO_DIR}/config/values.yml
+    imageRef="$(docker image inspect $DOCKER_ORG/$image:latest --format '{{index .RepoDigests 0}}')"
+    sed -i'' -e "s| $yttValuesRef:.*| $yttValuesRef: \"$imageRef\"|" ${REPO_DIR}/config/values.yml
 }
 
 buildAndReplaceImage metric-proxy ${REPO_DIR} Dockerfile metric_proxy

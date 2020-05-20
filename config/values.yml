@@ -4,7 +4,7 @@ system_domain: ""
 system_namespace: ""
 
 images:
-  metric_proxy: "oratos/metric-proxy@sha256:6ecd07b823eca95fd42f84339b91267d969f9ae45433481cc8803b1b8cc35379"
+  metric_proxy: "oratos/metric-proxy@sha256:d64fd88c9c843534c75b8e574edc73a6648497f73336506a50038a2a7d09d801"
 
 metric_proxy:
   ca:
