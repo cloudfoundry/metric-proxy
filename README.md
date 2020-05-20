@@ -15,7 +15,6 @@ Push an application and see its metrics with `cf push <app_name>`
 $ cf push diego-docker-test -o cloudfoundry/diego-docker-app
 
 Pushing from manifest to org system / space system as admin...
-Using manifest file /Users/pivotal/workspace/metric-proxy/manifest.yml
 Getting app info...
 Updating app with these attributes...
   name:                diego-docker-test
@@ -83,4 +82,4 @@ for more details. This is reported as a percentage in the Cloud Foundry CLI.
 For backwards compatibility, `disk` usage is still presented in the output but
 will always return 0 as there is no equivalent pod metric in Kubernetes.
 
-![Image of API Flow](./metric-proxy.jpg)
+![Image of API Flow](./docs/metric-proxy.jpg)
