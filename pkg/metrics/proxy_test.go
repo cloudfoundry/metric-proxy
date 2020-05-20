@@ -348,6 +348,31 @@ func TestMetricsProxyRead(t *testing.T) {
 			},
 		}))
 	})
+
+	t.Run("it returns metrics with InstanceId based on pod name", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		f := newFakeFetcher(corev1.ResourceList{
+			"cpu": *resource.NewScaledQuantity(420000000, resource.Nano),
+		})
+		f.appCount = 36
+
+		stop, err := startGRPCServer(f.GetMetrics, false)
+		g.Expect(err).ToNot(HaveOccurred())
+		defer stop()
+
+		conn, err := grpc.Dial(":8080", grpc.WithInsecure())
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+
+		client := logcache_v1.NewEgressClient(conn)
+		resp, err := client.Read(context.Background(), &logcache_v1.ReadRequest{
+			SourceId: "fake-source",
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		g.Expect(resp.Envelopes.Batch[0].InstanceId).To(Equal("0"))
+		g.Expect(resp.Envelopes.Batch[35].InstanceId).To(Equal("35"))
+	})
 }
 
 func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
@@ -372,6 +397,7 @@ func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
 }
 
 type fakeFetcher struct {
+	appCount    int
 	processGuid chan string
 	resources   corev1.ResourceList
 }
@@ -380,6 +406,7 @@ func newFakeFetcher(resources corev1.ResourceList) *fakeFetcher {
 	return &fakeFetcher{
 		processGuid: make(chan string, 1),
 		resources:   resources,
+		appCount:    1,
 	}
 }
 
@@ -388,13 +415,24 @@ func (f *fakeFetcher) GetMetrics(processGuid string) (*v1beta1.PodMetricsList, e
 	return &v1beta1.PodMetricsList{
 		TypeMeta: v1.TypeMeta{},
 		ListMeta: v1.ListMeta{},
-		Items: []v1beta1.PodMetrics{{
+		Items:    f.podMetrics(),
+	}, nil
+}
+
+func (f *fakeFetcher) podMetrics() []v1beta1.PodMetrics {
+	m := make([]v1beta1.PodMetrics, 0)
+	for i := 0; i < f.appCount; i++ {
+		m = append(m, v1beta1.PodMetrics{
+			ObjectMeta: v1.ObjectMeta{
+				Name: fmt.Sprintf("test-app-%v", i),
+			},
 			Containers: []v1beta1.ContainerMetrics{{
-				Name:  "test-container",
+				Name:  "test-app",
 				Usage: f.resources,
 			}},
-		}},
-	}, nil
+		})
+	}
+	return m
 }
 
 func newErrorFetcher(s string) Fetcher {
