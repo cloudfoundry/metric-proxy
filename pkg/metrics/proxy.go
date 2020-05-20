@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"regexp"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
@@ -13,7 +14,7 @@ import (
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 )
 
-type Fetcher func(processGuid string) (*v1beta1.PodMetricsList, error)
+type Fetcher func(guid string) (*v1beta1.PodMetricsList, error)
 
 type Proxy struct {
 	GetMetrics           Fetcher
@@ -31,11 +32,22 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 		metrics := aggregateContainerMetrics(podMetric.Containers)
 
 		for k, v := range metrics {
-			envelopes = append(envelopes, m.createLoggregatorEnvelope(req, m.createGaugeMap(v1.ResourceName(k), v)))
+			envelopes = append(envelopes,
+				m.createLoggregatorEnvelope(
+					req,
+					m.createGaugeMap(v1.ResourceName(k), v),
+					getInstanceId(podMetric),
+				),
+			)
 		}
 
 		if m.AddEmptyDiskEnvelope {
-			envelopes = append(envelopes, m.createEmptyDiskEnvelope(req))
+			envelopes = append(envelopes,
+				m.createEmptyDiskEnvelope(
+					req,
+					getInstanceId(podMetric),
+				),
+			)
 		}
 	}
 
@@ -81,23 +93,26 @@ func isIstio(podName string) bool {
 	return b
 }
 
-func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest) *loggregator_v2.Envelope {
-	return m.createLoggregatorEnvelope(req,
+func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest, instanceId string) *loggregator_v2.Envelope {
+	return m.createLoggregatorEnvelope(
+		req,
 		m.createGaugeMap(
 			"disk", *resource.NewQuantity(0, "BinarySI"),
 		),
+		instanceId,
 	)
 }
 
 func (m *Proxy) createLoggregatorEnvelope(
 	req *logcache_v1.ReadRequest,
 	gauges map[string]*loggregator_v2.GaugeValue,
+	instanceId string,
 ) *loggregator_v2.Envelope {
 
 	return &loggregator_v2.Envelope{
 		Timestamp:  time.Now().UnixNano(),
 		SourceId:   req.GetSourceId(),
-		InstanceId: "0",
+		InstanceId: instanceId,
 		Tags: map[string]string{
 			"process_id": req.GetSourceId(),
 			"origin":     "rep",
@@ -130,4 +145,9 @@ func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[strin
 	}
 
 	return gauges
+}
+
+func getInstanceId(podMetric v1beta1.PodMetrics) string {
+	s := strings.Split(podMetric.Name, "-")
+	return s[len(s)-1]
 }
