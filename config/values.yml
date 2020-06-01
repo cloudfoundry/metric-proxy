@@ -7,6 +7,7 @@ images:
   metric_proxy: "oratos/metric-proxy@sha256:0e933b4f7208d3d6453ee28044126392a92055a565288434f2c522bf18a44fe1"
 
 metric_proxy:
+  enable_metrics_server: false
   ca:
     secret_name: "metric-proxy-ca"
     crt: "" #! Base64-encoded ca for the metric-proxy-ca
