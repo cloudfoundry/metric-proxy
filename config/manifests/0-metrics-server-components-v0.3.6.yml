@@ -88,7 +88,7 @@ spec:
         emptyDir: {}
       containers:
       - name: metrics-server
-        image: k8s.gcr.io/metrics-server-amd64:v0.3.6
+        image: oratos/metrics-server:v0.3.6@sha256:a37da13de7b74c373e8698dee7836ce5fdbd102c3c1c8b9953a95e7f20138ab6
         imagePullPolicy: IfNotPresent
         args:
           - --cert-dir=/tmp
