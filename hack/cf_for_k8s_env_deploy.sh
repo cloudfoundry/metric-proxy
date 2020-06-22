@@ -1,6 +1,7 @@
 #!/bin/bash
 
 zone_name=${1:-sloans-lake}
+gcp_key=${2:-/tmp/sa.json}
 cf_domain="${zone_name}.loggr.cf-app.com"
 
 echo "Creating a GCP cluster with the domain name ${cf_domain}"
@@ -14,7 +15,8 @@ gcloud container clusters get-credentials ${zone_name} --region us-central1
 echo "Deploying cf-for-k8s on the new cluster"
 
 pushd ~/workspace/cf-for-k8s
-  ./hack/generate-values.sh -d ${cf_domain} > /tmp/cf-values.yml
+  echo "Deploying with cf-for-k8s branch $(git rev-parse --abbrev-ref HEAD)"
+  ./hack/generate-values.sh -g ${gcp_key} -d ${cf_domain} > /tmp/cf-values.yml
   ytt -f config -f /tmp/cf-values.yml > /tmp/cf-for-k8s-rendered.yml
   kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y
   ./hack/update-gcp-dns.sh ${cf_domain} ${zone_name}
