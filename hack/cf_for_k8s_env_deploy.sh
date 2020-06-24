@@ -4,6 +4,8 @@ zone_name=${1:-sloans-lake}
 gcp_key=${2:-/tmp/sa.json}
 cf_domain="${zone_name}.loggr.cf-app.com"
 
+lpass show 'Shared-Loggregator (Pivotal Only)/GCP Service Account Key' --notes > /tmp/sa.json
+
 echo "Creating a GCP cluster with the domain name ${cf_domain}"
 
 gcloud auth login
