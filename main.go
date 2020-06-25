@@ -63,8 +63,8 @@ func main() {
 func setupAndStartMetricServer(loggr *log.Logger) {
 	m := metricRegistry.NewRegistry(
 		loggr,
-		metricRegistry.WithServer(
-			9102,
+		metricRegistry.WithPublicServer(
+			9090,
 		),
 	)
 
