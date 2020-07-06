@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -e
 
 zone_name=${1:-sloans-lake}
 gcp_key=${2:-/tmp/sa.json}
@@ -59,10 +59,8 @@ fi
 echo "Targeting GCP cluster with the domain name ${zone_name}"
 gcloud container clusters get-credentials ${zone_name} --region us-central1
 
-echo "Deploying cf-for-k8s on the new cluster"
+echo "Deploying to cf-for-k8s on the ${zone_name} cluster"
 pushd ~/workspace/cf-for-k8s
-  echo "Deploying with cf-for-k8s branch $(git rev-parse --abbrev-ref HEAD)"
-
   ./hack/generate-values.sh -g ${gcp_key} -d ${cf_domain} > /tmp/cf-values.yml
   vault write secret/envs/cf4k8s/${zone_name} cf-values.yml=@/tmp/cf-values.yml
 
@@ -70,10 +68,12 @@ pushd ~/workspace/cf-for-k8s
   kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y || { echo "Failed to deploy cf-for-k8s. Exiting."; exit 1; }
 
   echo "Updating DNS records. Ensure that the ${zone_name} DNS record exists in GCP"
-  ./hack/update-gcp-dns.sh ${cf_domain} ${zone_name} || echo "Warning: failed to update GCP DNS. Attempting to continue, but targeting may fail."
+  ./hack/update-gcp-dns.sh ${cf_domain} ${zone_name} \
+    || echo "Warning: failed to update GCP DNS. Attempting to continue, but targeting may fail."
 popd
 
-./hack/cf_for_k8s_login.sh ${zone_name} || { echo "Failed to target cf-for-k8s at ${zone_name}." ; exit 2; }
+./hack/cf_for_k8s_login.sh ${zone_name} \
+    || { echo "Failed to target cf-for-k8s at ${zone_name}." ; exit 2; }
 
 cat <<EOF
 Done!
