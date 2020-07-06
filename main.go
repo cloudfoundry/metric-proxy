@@ -49,7 +49,6 @@ func main() {
 
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(requestTimer),
-		grpc.Creds(cfg.TLS.Credentials("metric-proxy")),
 	)
 	logcache_v1.RegisterEgressServer(s, c)
 
@@ -57,6 +56,7 @@ func main() {
 	if err != nil {
 		loggr.Fatalf("failed to listen: %v", err)
 	}
+
 	panic(s.Serve(lis))
 }
 
