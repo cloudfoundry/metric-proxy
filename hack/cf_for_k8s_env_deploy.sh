@@ -53,7 +53,7 @@ if [[ "$SKIP_CREATE_CLUSTER" != true ]]; then
   gcloud auth login
   gcloud container clusters create ${zone_name} --region us-central1 \
     --no-enable-cloud-logging --no-enable-cloud-monitoring \
-    --machine-type=n1-standard-4 --enable-network-policy --cluster-version=1.15.11
+    --machine-type=n1-standard-4 --enable-network-policy --cluster-version=latest
 fi
 
 echo "Targeting GCP cluster with the domain name ${zone_name}"
