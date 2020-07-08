@@ -4,6 +4,5 @@ system_domain: ""
 system_namespace: ""
 
 images:
-  #! TODO: rebuild as latest image (not dev)
-  metric_proxy: "oratos/metric-proxy@sha256:dbdcca36e6e2517ca284320b06f72e78fe0ce2d0a2e66f30f7ef81d1458477dd"
+  metric_proxy: "oratos/metric-proxy@sha256:76fe51d101ca0488996b7b17b8f3a28388996c694e4688da6156e9c3474b8bbc"
 
