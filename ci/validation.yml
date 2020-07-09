@@ -28,13 +28,12 @@ resources:
     repository: oratos/metric-proxy
     tag: pipeline-test
 
-- name: metric-proxy-docker-latest
-  type: docker-image
+- name: metric-proxy-image
+  type: registry-image
   source:
+    repository: oratos/metric-proxy
     username: ((oratos-docker.username))
     password: ((oratos-docker.password))
-    repository: oratos/metric-proxy
-    tag: latest
 
 - name: metric-proxy-github-release
   type: github-release
@@ -42,6 +41,7 @@ resources:
     owner: cloudfoundry
     repository: metric-proxy
     access_token: ((loggregator-bot-access-token))
+    drafts: true
 
 - name: denver-metric-proxy-pipeline-vars
   type: vault
@@ -86,7 +86,7 @@ jobs:
           dockerfile: metric-proxy/Dockerfile
           build: metric-proxy
     - task: vendir-metrics
-      file: metric-proxy/ci/vendir-metrics.yml
+      file: metric-proxy/ci/tasks/vendir-metrics.yml
     - task: install-cf
       config:
         platform: linux
@@ -150,11 +150,44 @@ jobs:
   - name: create-release
     plan:
     - get: metric-proxy
-    - in_parallel:
-      - put: metric-proxy-docker-latest
-        params:
-          dockerfile: metric-proxy/Dockerfile
-          build: metric-proxy
+      passed: ["run-tests-on-cf-for-k8s-pr"]
+    - task: build-image
+      privileged: true
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: vito/oci-build-task
+        inputs:
+        - name: metric-proxy
+          path: .
+        outputs:
+        - name: image
+        run:
+          path: build
+    - task: add-osl-labels
+      input_mapping:
+        source-repository: metric-proxy
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: pivotalcfreleng/tas-for-k8s-ci
+        inputs:
+        - name: image
+        - name: source-repository
+        outputs:
+        - name: labeled-image
+        run:
+          path: bash
+          args:
+          - -euc
+          - deplab --image-tar image/image.tar --git source-repository --output-tar "labeled-image/image.tar"
+    - put: metric-proxy-image
+      params:
+        image: labeled-image/image.tar
     - task: prepare-release
       config:
         platform: linux
@@ -163,7 +196,7 @@ jobs:
           source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
         inputs:
           - name: metric-proxy
-          - name: metric-proxy-docker-latest
+          - name: metric-proxy-image
         outputs:
           - name: metric-proxy-release
         params:
@@ -180,6 +213,7 @@ jobs:
               echo $RELEASE_VERSION > ../metric-proxy-release/name
               mkdir ../metric-proxy-release/globs
               cp config/* ../metric-proxy-release/globs/
+              cp config/manifests/* ../metric-proxy-release/globs/
               git rev-parse HEAD > ../metric-proxy-release/commitish
             popd
     - put: metric-proxy-github-release
