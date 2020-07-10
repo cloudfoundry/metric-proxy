@@ -47,10 +47,19 @@ func main() {
 	}
 	setupAndStartMetricServer(loggr)
 
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(requestTimer),
-		grpc.Creds(cfg.TLS.Credentials("metric-proxy")),
-	)
+	var s *grpc.Server
+	if cfg.TLS.CAPath != "" {
+		loggr.Println("creating gRPC server with TLS")
+		s = grpc.NewServer(
+			grpc.UnaryInterceptor(requestTimer),
+			grpc.Creds(cfg.TLS.Credentials("metric-proxy")),
+		)
+	} else {
+		loggr.Println("creating gRPC server with no TLS")
+		s = grpc.NewServer(
+			grpc.UnaryInterceptor(requestTimer),
+		)
+	}
 	logcache_v1.RegisterEgressServer(s, c)
 
 	lis, err := net.Listen("tcp", cfg.Addr)

@@ -13,9 +13,9 @@ import (
 
 // Config is the configuration for a LogCache.
 type Config struct {
-	Addr string `env:"ADDR, required, report"`
+	Addr        string `env:"ADDR, required, report"`
 	AppSelector string `env:"APP_SELECTOR, required, report"`
-	Namespace string `env:"NAMESPACE"`
+	Namespace   string `env:"NAMESPACE"`
 
 	// QueryTimeout sets the maximum allowed runtime for a single PromQL query.
 	// Smaller timeouts are recommended.
@@ -38,11 +38,10 @@ func LoadConfig() (*Config, error) {
 	return &c, nil
 }
 
-
 type TLS struct {
-	CAPath   string `env:"CA_PATH,   required, report"`
-	CertPath string `env:"CERT_PATH, required, report"`
-	KeyPath  string `env:"KEY_PATH,  required, report"`
+	CAPath   string `env:"CA_PATH,   report"`
+	CertPath string `env:"CERT_PATH, report"`
+	KeyPath  string `env:"KEY_PATH,  report"`
 }
 
 func (t TLS) Credentials(cn string) credentials.TransportCredentials {
