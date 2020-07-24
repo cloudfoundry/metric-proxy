@@ -32,5 +32,8 @@ build-darwin:
 	echo "Building darwin binary tag $(VERSION) in bin/metric-proxy-darwin..."
 	GOOS=darwin OARCH=amd64 go build -a -installsuffix nocgo -o bin/metric-proxy-darwin -ldflags "-X main.version=$(VERSION)" -mod=readonly .
 
+test:
+	go test ./... -race -count=1
+
 clean:
 	rm bin/*
