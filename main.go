@@ -20,17 +20,21 @@ import (
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-var requestDurations metricRegistry.Histogram
+var (
+	version = "dev-build"
+	requestDurations metricRegistry.Histogram
+)
+
 
 func main() {
 	loggr := log.New(os.Stderr, "", log.LstdFlags)
+	loggr.Printf("starting metric-proxy %s...\n", version)
+	defer loggr.Println("exiting metric-proxy...")
+
 	cfg, err := LoadConfig()
 	if err != nil {
 		loggr.Fatalf("invalid configuration: %s", err)
 	}
-
-	loggr.Println("starting metric-proxy...")
-	defer loggr.Println("exiting metric-proxy...")
 
 	err = envstruct.WriteReport(cfg)
 	if err != nil {
