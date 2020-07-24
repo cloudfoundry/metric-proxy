@@ -10,7 +10,7 @@ ifneq ($(COMMIT), $(TAG_COMMIT))
 	VERSION := $(VERSION)-untagged-$(COMMIT)-$(DATE)
 endif
 ifeq ($(VERSION),)
-	VERSION := $(COMMIT)-$(DATA)
+	VERSION := $(COMMIT)-$(DATE)
 endif
 ifneq ($(shell git status --porcelain),)
 	VERSION := $(VERSION)-dirty
