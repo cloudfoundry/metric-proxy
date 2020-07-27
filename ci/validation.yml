@@ -6,6 +6,25 @@ resource_types:
     tag: latest
 
 resources:
+- name: metric-proxy-master-version
+  type: git
+  source:
+    branch: master
+    private_key: ((oratos-bot-private-key))
+    uri: git@github.com:cloudfoundry/metric-proxy.git
+    clean_tags: true
+    paths:
+    - version
+
+- name: metric-proxy-version
+  type: semver
+  source:
+    branch: master
+    driver: git
+    file: version
+    private_key: ((oratos-bot-private-key))
+    uri: git@github.com:cloudfoundry/metric-proxy.git
+
 - name: cf-for-k8s
   type: git
   source:
@@ -147,10 +166,24 @@ jobs:
             export SMOKE_TEST_PASSWORD=$(cat env-metadata/cf-admin-password.txt)
             export SMOKE_TEST_SKIP_SSL=true
             cf-for-k8s-with-metrics/hack/run-smoke-tests.sh
+  - name: metric-proxy-cut-patch
+    plan:
+    - put: metric-proxy-version
+      params: {bump: patch}
+  - name: metric-proxy-cut-minor
+    plan:
+    - put: metric-proxy-version
+      params: {bump: minor}
+  - name: metric-proxy-cut-major
+    plan:
+    - put: metric-proxy-version
+      params: {bump: major}
   - name: create-release
     plan:
-    - get: metric-proxy
-      passed: ["run-tests-on-cf-for-k8s-pr"]
+    - in_parallel:
+      - get: metric-proxy-master-version
+      - get: metric-proxy
+        passed: ["run-tests-on-cf-for-k8s-pr"]
     - task: build-image
       privileged: true
       config:
@@ -197,10 +230,9 @@ jobs:
         inputs:
           - name: metric-proxy
           - name: metric-proxy-image
+          - name: metric-proxy-master-version
         outputs:
           - name: metric-proxy-release
-        params:
-          RELEASE_VERSION: 0.1.0
         run:
           path: /bin/bash
           args:
@@ -210,7 +242,7 @@ jobs:
               new_metric_proxy_image_digest=$(cat ../metric-proxy-docker-latest/digest)
               sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
 
-              echo $RELEASE_VERSION > ../metric-proxy-release/name
+              cp metric-proxy-master-version > ../metric-proxy-release/name
               mkdir ../metric-proxy-release/globs
               cp config/* ../metric-proxy-release/globs/
               cp config/manifests/* ../metric-proxy-release/globs/
