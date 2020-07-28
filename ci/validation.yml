@@ -221,6 +221,7 @@ jobs:
     - put: metric-proxy-image
       params:
         image: labeled-image/image.tar
+        additional_tags: metric-proxy-master-version/version
     - task: prepare-release
       config:
         platform: linux
@@ -229,6 +230,7 @@ jobs:
           source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
         inputs:
           - name: metric-proxy
+          - name: labeled-image
           - name: metric-proxy-image
           - name: metric-proxy-master-version
         outputs:
@@ -236,18 +238,30 @@ jobs:
         run:
           path: /bin/bash
           args:
-          - -c
+          - -ce
           - |
-            pushd metric-proxy
-              new_metric_proxy_image_digest=$(cat ../metric-proxy-docker-latest/digest)
-              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
+            new_metric_proxy_image_digest=$(cat metric-proxy-image/digest)
+            version=$(cat metric-proxy-master-version/version)
 
-              cp metric-proxy-master-version > ../metric-proxy-release/name
-              mkdir ../metric-proxy-release/globs
-              cp config/* ../metric-proxy-release/globs/
-              cp config/manifests/* ../metric-proxy-release/globs/
+            echo $version > metric-proxy-release/name
+
+            pushd metric-proxy
+              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
               git rev-parse HEAD > ../metric-proxy-release/commitish
             popd
+
+            mkdir metric-proxy-release/globs
+            cp metric-proxy/config/values.yml metric-proxy-release/globs/
+            cp metric-proxy/config/manifests/* metric-proxy-release/globs/
+            cp labeled-image/image.tar metric-proxy-release/globs/
+
+            cat << EOF > metric-proxy-release/body
+            **Changelog**
+
+            Image SHA: $new_metric_proxy_image_digest
+            Image Tag: $version
+
+            EOF
     - put: metric-proxy-github-release
       params:
         name: metric-proxy-release/name
@@ -255,4 +269,5 @@ jobs:
         globs:
         - metric-proxy-release/globs/*
         commitish: metric-proxy-release/commitish
+        body: metric-proxy-release/body
 
