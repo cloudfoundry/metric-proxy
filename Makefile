@@ -18,19 +18,11 @@ endif
 
 default: build-linux
 
-build-all: build-linux build-windows build-darwin
+all: build-linux build-windows build-darwin
 
-build-linux:
-	echo "Building linux binary tag $(VERSION) in bin/metric-proxy-linux..."
-	GOOS=linux GOARCH=amd64 go build -a -installsuffix nocgo -o bin/metric-proxy-linux -ldflags "-X main.version=$(VERSION)" -mod=readonly .
-
-build-windows:
-	echo "Building windows binary tag $(VERSION) in bin/metric-proxy-windows..."
-	GOOS=windows GOARCH=amd64 go build -a -installsuffix nocgo -o bin/metric-proxy-windows -ldflags "-X main.version=$(VERSION)" -mod=readonly .
-
-build-darwin:
-	echo "Building darwin binary tag $(VERSION) in bin/metric-proxy-darwin..."
-	GOOS=darwin OARCH=amd64 go build -a -installsuffix nocgo -o bin/metric-proxy-darwin -ldflags "-X main.version=$(VERSION)" -mod=readonly .
+build-%:
+	echo "Building $* binary tag $(VERSION) in bin/metric-proxy-$*..."
+	GOOS=$* GOARCH=amd64 go build -a -installsuffix nocgo -o bin/metric-proxy-$* -ldflags "-X main.version=$(VERSION)" -mod=readonly .
 
 test:
 	go test ./... -race -count=1
