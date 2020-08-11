@@ -11,7 +11,7 @@ pushd $REPO_DIR
     docker build -t ${image_name} .
     docker push ${image_name}
 
-    source ${REPO_DIR}/scripts/helpers.sh
+    source ${REPO_DIR}/hack/helpers.sh
 
     updateConfigValues metric-proxy:${tag} metric_proxy
 popd

@@ -246,20 +246,23 @@ jobs:
             echo $version > metric-proxy-release/name
 
             pushd metric-proxy
-              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
               git rev-parse HEAD > ../metric-proxy-release/commitish
+
+              # write sha to Github release only -- will not exist in repo
+              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
             popd
 
             mkdir metric-proxy-release/globs
-            cp metric-proxy/config/values.yml metric-proxy-release/globs/
-            cp metric-proxy/config/manifests/* metric-proxy-release/globs/
-            cp labeled-image/image.tar metric-proxy-release/globs/
+            cp metric-proxy/config/* metric-proxy-release/globs/
 
             cat << EOF > metric-proxy-release/body
-            **Changelog**
+            ### Changelog
 
-            Image SHA: $new_metric_proxy_image_digest
-            Image Tag: $version
+            **Image SHA**
+            $new_metric_proxy_image_digest
+
+            **Image Tag**
+            $version
 
             EOF
     - put: metric-proxy-github-release
