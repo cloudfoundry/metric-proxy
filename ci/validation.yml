@@ -113,7 +113,8 @@ jobs:
           type: docker-image
           source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
         inputs:
-          - name: cf-for-k8s-with-metrics
+        - name: cf-for-k8s-with-metrics
+        - name: metric-proxy-docker
         outputs:
         - name: env-metadata
         - name: vars
@@ -132,12 +133,21 @@ jobs:
             cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
             echo "Generating install values..."
             cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g sa.json > vars/cf-install-values.yml
-            # echo "Writing cf-install-values.yml to vault"
-            # vault write /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars vars_file=@vars/cf-install-values.yml
+            echo "Writing cf-install-values.yml to vault"
+            vault write /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars vars_file=@vars/cf-install-values.yml
             echo "Installing CF..."
+            imageRef="$(cat metric-proxy-docker/repository)@$(cat metric-proxy-docker/digest)"
+            cat <<EOF > /cf-for-k8s-with-metrics/config/metrics/_ytt_lib/metric-proxy/values.yml
+            #@data/values
+            ---
+            system_domain: ""
+            system_namespace: ""
+
+            images:
+              metric_proxy: "${imageRef}"
+            EOF
             ytt -f cf-for-k8s-with-metrics/config -f vars/cf-install-values.yml > /tmp/cf-for-k8s-rendered.yml
             kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y
-
             bosh interpolate --path /cf_admin_password vars/cf-install-values.yml > env-metadata/cf-admin-password.txt
             echo "${DNS_DOMAIN}" > env-metadata/dns-domain.txt
             echo "Configuring DNS..."
