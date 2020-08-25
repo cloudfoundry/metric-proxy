@@ -42,7 +42,7 @@ for arg in "$@"; do
 done
 
 # verify args
-if [[ ! -f ${gcp_key} ]]; then
+if [[ ! -s ${gcp_key} ]]; then
   echo "GCP key ${gcp_key} not found. Loading from Lastpass into /tmp/sa.json"
   gcp_key="/tmp/sa.json"
   lpass show "$LPASS_GCP_KEY" --notes > $gcp_key
