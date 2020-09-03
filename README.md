@@ -83,3 +83,26 @@ For backwards compatibility, `disk` usage is still presented in the output but
 will always return 0 as there is no equivalent pod metric in Kubernetes.
 
 ![Image of API Flow](./docs/metric-proxy.jpg)
+
+
+## How to Contribute/Develop metric-proxy
+
+There are several scripts to help automate building and deploying new versions
+of `metric-proxy`.
+
+`./hack/build-dev-image.sh` — runs tests and builds and pushes a new docker image to
+`oratos/metric-proxy:dev`
+
+`./hack/bump-cf-for-k8s.sh` - updates the vendired metric-proxy
+directory in the `cf-for-k8s` repo with any changes made to metric-proxy
+
+`./hack/cf_for_k8s_env_deploy.sh` - helper script to create a GCP K8s cluster,
+deploy cf-for-k8s, and update DNS records. Update this script with your GCP
+Service Account key and DNS information.
+
+`./hack/cf_for_k8s_login.sh` - helper to cf login to your cf-for-k8s
+deployment using CF CLI v7
+
+Confirm metric-proxy works by following steps in the Usage section.
+
+See [Concourse CI](https://loggregator.ci.cf-app.com/teams/main/pipelines/metric-proxy).

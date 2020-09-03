@@ -2,7 +2,7 @@
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 pushd $REPO_DIR
-    go test ./... -race
+    make test
 
     repository="oratos"
     tag="dev"
