@@ -67,11 +67,11 @@ pushd ~/workspace/cf-for-k8s
 
   ytt -f config -f /tmp/cf-values.yml > /tmp/cf-for-k8s-rendered.yml
   kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y || { echo "Failed to deploy cf-for-k8s. Exiting."; exit 1; }
-
-  echo "Updating DNS records. Ensure that the ${zone_name} DNS record exists in GCP"
-  ./hack/update-gcp-dns.sh ${cf_domain} ${zone_name} \
-    || echo "Warning: failed to update GCP DNS. Attempting to continue, but targeting may fail."
 popd
+
+echo "Updating DNS records. Ensure that the ${zone_name} DNS record exists in GCP"
+./hack/update_dns.sh ${cf_domain} ${zone_name} \
+  || echo "Warning: failed to update GCP DNS. Attempting to continue, but targeting may fail."
 
 ./hack/cf_for_k8s_login.sh ${zone_name} \
     || { echo "Failed to target cf-for-k8s at ${zone_name}." ; exit 2; }
