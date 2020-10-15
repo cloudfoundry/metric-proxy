@@ -106,3 +106,9 @@ deployment using CF CLI v7
 Confirm metric-proxy works by following steps in the Usage section.
 
 See [Concourse CI](https://loggregator.ci.cf-app.com/teams/main/pipelines/metric-proxy).
+
+## Have a question or feedback, reach out to us
+
+Reach out to us in the Cloud Foundry Slack channel [#logging-and-metrics](https://cloudfoundry.slack.com/archives/CUW93AF3M).
+To request a response during Mountain Time business hours, tag your message
+with @interrupt.
