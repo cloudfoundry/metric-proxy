@@ -4,8 +4,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: metric-proxy
-  namespace: #@ data.values.system_namespace
-  labels: #@ data.values.metadata_labels()
 spec:
   replicas: 1
   selector:
@@ -17,7 +15,6 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
-      labels: #@ data.values.metadata_labels()
     spec:
       serviceAccountName: metric-proxy
       containers:

@@ -10,3 +10,7 @@ pushd "${CF_FOR_K8s_DIR}"
   vendir sync -d config/metrics/_ytt_lib/metric-proxy="${REPO_DIR}/config"
 popd
 
+# sed -i "s|version:.*|version: dev-test|" $REPO_DIR/config/values.yml
+
+# On Mac
+sed -i .bak "s|version:.*|version: dev-test|" $REPO_DIR/config/values.yml *
