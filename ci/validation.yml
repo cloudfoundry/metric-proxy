@@ -259,6 +259,7 @@ jobs:
 
               # write sha to Github release only -- will not exist in repo
               sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
+              sed -i "s|version:.*|version: $version|" config/values.yml
             popd
 
             mkdir metric-proxy-release/globs

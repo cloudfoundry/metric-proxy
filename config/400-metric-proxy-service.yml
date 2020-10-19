@@ -5,6 +5,7 @@ kind: Service
 metadata:
   name: metric-proxy
   namespace: #@ data.values.system_namespace
+  labels: #@ data.values.metadata_labels()
 spec:
   selector:
     app: metric-proxy
