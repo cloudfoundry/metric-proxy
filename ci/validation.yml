@@ -28,7 +28,7 @@ resources:
 - name: cf-for-k8s
   type: git
   source:
-    branch: master
+    branch: main
     uri: git@github.com:cloudfoundry/cf-for-k8s
     private_key: ((oratos-bot-private-key))
 
