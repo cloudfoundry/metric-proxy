@@ -44,13 +44,13 @@ resources:
   source:
     username: ((oratos-docker.username))
     password: ((oratos-docker.password))
-    repository: oratos/metric-proxy
+    repository: cloudfoundry/metric-proxy
     tag: pipeline-test
 
 - name: metric-proxy-image
   type: registry-image
   source:
-    repository: oratos/metric-proxy
+    repository: cloudfoundry/metric-proxy
     username: ((oratos-docker.username))
     password: ((oratos-docker.password))
 
@@ -258,7 +258,7 @@ jobs:
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
               # write sha to Github release only -- will not exist in repo
-              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
+              sed -i "s| metric_proxy:.*| metric_proxy: \"cloudfoundry/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
             popd
 
             mkdir metric-proxy-release/globs
