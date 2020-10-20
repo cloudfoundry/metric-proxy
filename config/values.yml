@@ -6,16 +6,8 @@ system_namespace: ""
 images:
   metric_proxy: #! This is intentionally blank
 
-#@ def metadata_labels():
-app.kubernetes.io/name: "metric-proxy"
-app.kubernetes.io/version: #! This is intentionally blank
-app.kubernetes.io/component: "container-metrics"
-app.kubernetes.io/part-of: "cloudfoundry"
-app.kubernetes.io/managed-by: "metric-egress"
-#@ end
-
 name: metric-proxy
 component: container-metrics
 part_of: cloudfoundry
 managed_by: metric-egress
-version: dev-test
+version: #! This is intentionally blank
