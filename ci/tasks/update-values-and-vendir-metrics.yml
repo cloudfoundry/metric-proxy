@@ -15,4 +15,4 @@ outputs:
   path: cf-for-k8s
 
 run:
-  path: metric-proxy/ci/tasks/vendir-metrics.sh
+  path: metric-proxy/ci/tasks/update-values-and-vendir-metrics.sh
