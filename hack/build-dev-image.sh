@@ -4,7 +4,7 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 pushd $REPO_DIR
     make test
 
-    repository="oratos"
+    repository="cloudfoundry"
     tag="dev"
     image_name="${repository}/metric-proxy:${tag}"
 

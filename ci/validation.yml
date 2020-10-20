@@ -44,13 +44,13 @@ resources:
   source:
     username: ((oratos-docker.username))
     password: ((oratos-docker.password))
-    repository: oratos/metric-proxy
+    repository: cloudfoundry/metric-proxy
     tag: pipeline-test
 
 - name: metric-proxy-image
   type: registry-image
   source:
-    repository: oratos/metric-proxy
+    repository: cloudfoundry/metric-proxy
     username: ((oratos-docker.username))
     password: ((oratos-docker.password))
 
