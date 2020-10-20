@@ -7,5 +7,6 @@ sed -i'' -e "s| metric_proxy:.*| metric_proxy: \"$imageRef\"|" metric-proxy/conf
 
 # this is the CI version of hack/bump-cf-for-k8s.sh
 pushd cf-for-k8s
-  vendir sync -d config/metrics/_ytt_lib/metric-proxy=metric-proxy/config
+  METRIC_PROXY_DIR=../metric-proxy
+  vendir sync -d config/metrics/_ytt_lib/metric-proxy="${METRIC_PROXY_DIR}/config"
 popd
