@@ -5,3 +5,9 @@ system_namespace: ""
 
 images:
   metric_proxy: #! This is intentionally blank
+
+name: metric-proxy
+component: container-metrics
+part_of: cloudfoundry
+managed_by: metric-egress
+version: #! This is intentionally blank
