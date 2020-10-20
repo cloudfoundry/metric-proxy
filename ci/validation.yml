@@ -104,8 +104,8 @@ jobs:
           additional_tags: metric-proxy/ci/dockertags
           dockerfile: metric-proxy/Dockerfile
           build: metric-proxy
-    - task: vendir-metrics
-      file: metric-proxy/ci/tasks/vendir-metrics.yml
+    - task: update-values-and-vendir-metrics
+      file: metric-proxy/ci/tasks/update-values-and-vendir-metrics.yml
     - task: install-cf
       config:
         platform: linux
@@ -135,16 +135,6 @@ jobs:
             echo "Generating install values..."
             cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g sa.json > vars/cf-install-values.yml
             echo "Installing CF..."
-            imageRef="$(cat metric-proxy-docker/repository)@$(cat metric-proxy-docker/digest)"
-            cat <<EOF > cf-for-k8s-with-metrics/config/metrics/_ytt_lib/metric-proxy/values.yml
-            #@data/values
-            ---
-            system_domain: ""
-            system_namespace: ""
-
-            images:
-              metric_proxy: "${imageRef}"
-            EOF
             ytt -f cf-for-k8s-with-metrics/config -f vars/cf-install-values.yml > /tmp/cf-for-k8s-rendered.yml
             kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y
             bosh interpolate --path /cf_admin_password vars/cf-install-values.yml > env-metadata/cf-admin-password.txt
@@ -257,8 +247,8 @@ jobs:
             pushd metric-proxy
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
-              # write sha to Github release only -- will not exist in repo
-              sed -i "s| metric_proxy:.*| metric_proxy: \"oratos/metric-proxy@$new_metric_proxy_image_digest\"|" config/values.yml
+              source metric-proxy/hack/helpers.sh
+              updateConfigValues "metric-proxy@${new_metric_proxy_image_digest}" "metric_proxy"
               sed -i "s|version:.*|version: $version|" config/values.yml
             popd
 
