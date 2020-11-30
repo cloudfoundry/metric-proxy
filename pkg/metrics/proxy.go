@@ -14,15 +14,46 @@ import (
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 )
 
-type Fetcher func(guid string) (*v1beta1.PodMetricsList, error)
+type NodeDiskUsage struct {
+	Pods []PodDiskUsage `json:"pods"`
+}
+
+type PodDiskUsage struct {
+	PodRef     PodRef               `json:"podRef"`
+	Containers []ContainerDiskUsage `json:"containers"`
+}
+
+type PodRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type ContainerDiskUsage struct {
+	Name   string    `json:"name"`
+	RootFS DiskUsage `json:"rootfs"`
+	Logs   DiskUsage `json:"logs"`
+}
+
+type DiskUsage struct {
+	AvailableBytes int64 `json:"availableBytes"`
+	CapacityBytes  int64 `json:"capacityBytes"`
+	UsedBytes      int64 `json:"usedBytes"`
+}
+
+type (
+	Fetcher          func(guid string) (*v1beta1.PodMetricsList, error)
+	DiskUsageFetcher func(guid string) (PodDiskUsage, error)
+)
 
 type Proxy struct {
 	GetMetrics           Fetcher
+	GetDiskUsage         DiskUsageFetcher
 	AddEmptyDiskEnvelope bool
 }
 
 func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache_v1.ReadResponse, error) {
 	var envelopes []*loggregator_v2.Envelope
+
 	podMetrics, err := m.GetMetrics(req.SourceId)
 	if err != nil {
 		return nil, err
@@ -41,14 +72,7 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 			)
 		}
 
-		if m.AddEmptyDiskEnvelope {
-			envelopes = append(envelopes,
-				m.createEmptyDiskEnvelope(
-					req,
-					getInstanceId(podMetric),
-				),
-			)
-		}
+		envelopes = append(envelopes, m.createDiskEnvelope(req, podMetric))
 	}
 
 	resp := &logcache_v1.ReadResponse{
@@ -103,6 +127,36 @@ func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest, instanceId
 	)
 }
 
+func (m *Proxy) createDiskEnvelope(req *logcache_v1.ReadRequest, podMetric v1beta1.PodMetrics) *loggregator_v2.Envelope {
+	podDiskUsage, err := m.GetDiskUsage(podMetric.Name)
+	instanceID := getInstanceId(podMetric)
+
+	if err != nil {
+		return m.createLoggregatorEnvelope(
+			req,
+			m.createGaugeMap(
+				"disk", *resource.NewQuantity(0, "BinarySI"),
+			),
+			instanceID,
+		)
+	}
+
+	var usedBytes int64
+	for _, cdu := range podDiskUsage.Containers {
+		if !isIstio(cdu.Name) {
+			usedBytes += cdu.RootFS.UsedBytes + cdu.Logs.UsedBytes
+		}
+	}
+
+	return m.createLoggregatorEnvelope(
+		req,
+		m.createGaugeMap(
+			"disk", *resource.NewQuantity(usedBytes, "BinarySI"),
+		),
+		instanceID,
+	)
+}
+
 func (m *Proxy) createLoggregatorEnvelope(
 	req *logcache_v1.ReadRequest,
 	gauges map[string]*loggregator_v2.GaugeValue,
@@ -126,7 +180,7 @@ func (m *Proxy) createLoggregatorEnvelope(
 }
 
 func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[string]*loggregator_v2.GaugeValue {
-	var gauges = map[string]*loggregator_v2.GaugeValue{}
+	gauges := map[string]*loggregator_v2.GaugeValue{}
 
 	switch v.Format {
 	case "BinarySI":

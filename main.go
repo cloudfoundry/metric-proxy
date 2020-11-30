@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -15,16 +16,16 @@ import (
 	metricRegistry "code.cloudfoundry.org/go-metric-registry"
 	"google.golang.org/grpc"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 var (
-	version = "dev-build"
+	version          = "dev-build"
 	requestDurations metricRegistry.Histogram
 )
-
 
 func main() {
 	loggr := log.New(os.Stderr, "", log.LstdFlags)
@@ -45,8 +46,15 @@ func main() {
 	if err != nil {
 		loggr.Fatalf("cannot initialize metric fetcher: %v", err)
 	}
+
+	diskUsageFetcher, err := createDiskUsageFetcher(cfg, loggr)
+	if err != nil {
+		loggr.Fatalf("cannot initialize disk usage fetcher: %v", err)
+	}
+
 	c := &metrics.Proxy{
 		GetMetrics:           fetcher,
+		GetDiskUsage:         diskUsageFetcher,
 		AddEmptyDiskEnvelope: true,
 	}
 	setupAndStartMetricServer(loggr)
@@ -111,5 +119,57 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 			LabelSelector:  fmt.Sprintf("%s=%s", cfg.AppSelector, guid),
 			TimeoutSeconds: &cfg.QueryTimeout,
 		})
+	}, nil
+}
+
+func createDiskUsageFetcher(cfg *Config, loggr *log.Logger) (metrics.DiskUsageFetcher, error) {
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(podName string) (metrics.PodDiskUsage, error) {
+		// TODO: cache the result to avoid getting disk usage from all pods every time
+		// We can reuse previous result if within N seconds (configurable)
+
+		pod, err := clientSet.CoreV1().Pods(cfg.Namespace).Get(podName, v1.GetOptions{})
+		if err != nil {
+			loggr.Printf("get-pod-failed: %v", err)
+			return metrics.PodDiskUsage{}, err
+		}
+
+		result := clientSet.CoreV1().RESTClient().
+			Get().
+			Resource("nodes").
+			Name(pod.Spec.NodeName).
+			SubResource("proxy", "stats", "summary").
+			Do()
+
+		body, err := result.Raw()
+		if err != nil {
+			loggr.Printf("get-proxy-stats-summary-failed: %v - %s", err, string(body))
+			return metrics.PodDiskUsage{}, err
+		}
+
+		var nodeDiskUsage metrics.NodeDiskUsage
+		err = json.Unmarshal(body, &nodeDiskUsage)
+		if err != nil {
+			loggr.Printf("unmarshal-node-disk-usage-failed: %v", err)
+			return metrics.PodDiskUsage{}, err
+		}
+
+		for _, pdu := range nodeDiskUsage.Pods {
+			if pdu.PodRef.Name == podName {
+				return pdu, nil
+			}
+		}
+
+		loggr.Printf("pod-not-found-in-usage: %q", podName)
+		return metrics.PodDiskUsage{}, fmt.Errorf("pod %q not found", podName)
 	}, nil
 }

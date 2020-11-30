@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -376,7 +377,13 @@ func TestMetricsProxyRead(t *testing.T) {
 }
 
 func startGRPCServer(f Fetcher, addEnvelopes bool) (stop func(), err error) {
-	c := &Proxy{f, addEnvelopes}
+	c := &Proxy{
+		GetMetrics: f,
+		GetDiskUsage: func(string) (PodDiskUsage, error) {
+			return PodDiskUsage{}, errors.New("foo")
+		},
+		AddEmptyDiskEnvelope: addEnvelopes,
+	}
 
 	s := grpc.NewServer()
 	logcache_v1.RegisterEgressServer(s, c)
