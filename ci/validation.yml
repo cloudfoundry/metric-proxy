@@ -1,10 +1,3 @@
-resource_types:
-- name: vault
-  type: docker-image
-  source:
-    repository: oratos/vault-resource
-    tag: latest
-
 resources:
 - name: metric-proxy-main
   type: git
@@ -22,15 +15,45 @@ resources:
     branch: main
     driver: git
     file: version
-    private_key: ((oratos-bot-private-key))
+    # on 2 lines because: https://github.com/concourse/semver-resource/issues/79
+    private_key: |
+      ((oratos-bot-private-key))
     uri: git@github.com:cloudfoundry/metric-proxy.git
 
-- name: cf-for-k8s
+- name: cf-for-k8s-main
   type: git
   source:
     branch: main
     uri: git@github.com:cloudfoundry/cf-for-k8s
     private_key: ((oratos-bot-private-key))
+
+- name: cf-for-k8s-ci
+  type: git
+  icon: github
+  source:
+    uri: git@github.com:cloudfoundry/cf-for-k8s
+    branch: develop
+    private_key: ((cf_for_k8s_readonly_deploy_key.private_key))
+    paths:
+    - ci/**
+
+- name: ready-pool
+  type: pool
+  icon: pool
+  source:
+    uri: git@github.com:cloudfoundry/relint-ci-pools
+    branch: main
+    pool: k8s-dev/ready
+    private_key: ((relint_ci_pools_readwrite_deploy_key.private_key))
+
+- name: destroy-pool
+  type: pool
+  icon: pool
+  source:
+    uri: git@github.com:cloudfoundry/relint-ci-pools
+    branch: main
+    pool: k8s-dev/destroy
+    private_key: ((relint_ci_pools_readwrite_deploy_key.private_key))
 
 - name: metric-proxy #HERE
   type: git
@@ -59,130 +82,94 @@ resources:
   source:
     owner: cloudfoundry
     repository: metric-proxy
-    access_token: ((loggregator-bot-access-token))
+    access_token: ((logging-github-access-token))
     drafts: true
 
-- name: denver-metric-proxy-pipeline-vars
-  type: vault
-  source:
-    url: https://vault.oratos.ci.cf-app.com
-    role_id: ((vault.role_id))
-    secret_id: ((vault.secret_id))
-    path: /secret/envs/cf4k8s/denver-metric-proxy-pipeline-vars
-
 jobs:
-  - name: run-tests-on-cf-for-k8s-pr
+  - name: test-metric-proxy-bump-on-cf-for-k8s
     public: true
-    serial: true
     plan:
     - in_parallel:
-      - get: cf-for-k8s
+      - get: cf-for-k8s-main
+      - get: cf-for-k8s-ci
       - get: metric-proxy
         trigger: true
       - get: metric-proxy-docker
-      - get: denver-metric-proxy-pipeline-vars
-    - in_parallel:
-      - task: delete-cf
-        config:
-          platform: linux
-          image_resource:
-            type: docker-image
-            source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
-          run:
-            path: /bin/bash
-            args:
-            - -ecx
-            - |
-              export KUBECONFIG=kube-config.yml
-              gcloud auth activate-service-account --key-file=<(echo '((ci_k8s_gcp_service_account_json))') --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
-              gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
-              kapp delete -a cf --yes
     # Puts do an implicit check so this builds the image and immediately makes
     # it available to the next task and dockerhub
-      - put: metric-proxy-docker
-        params:
-          additional_tags: metric-proxy/ci/dockertags
-          dockerfile: metric-proxy/Dockerfile
-          build: metric-proxy
+    - put: metric-proxy-docker
+      params:
+        additional_tags: metric-proxy/ci/dockertags
+        dockerfile: metric-proxy/Dockerfile
+        build: metric-proxy
     - task: update-values-and-vendir-metrics
       file: metric-proxy/ci/tasks/update-values-and-vendir-metrics.yml
-    - task: install-cf
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
-        inputs:
-        - name: cf-for-k8s-with-metrics
-        - name: metric-proxy-docker
-        - name: metric-proxy
-        outputs:
-        - name: env-metadata
-        - name: vars
-        params:
-          DNS_DOMAIN: ((ci_k8s_domain))
-          DNS_ZONE_NAME: ((ci_k8s_dns_zone_name))
-        run:
-          path: /bin/bash
-          args:
-          - -ecx
-          - |
-            echo '((ci_k8s_gcp_service_account_json))' > sa.json
-            export KUBECONFIG=kube-config.yml
-            gcloud auth activate-service-account --key-file=sa.json --project='((ci_k8s_gcp_project_name))' 1>/dev/null 2>&1
-            gcloud container clusters get-credentials '((ci_k8s_gke_cluster_name))' --zone '((ci_k8s_gcp_project_zone))' 1>/dev/null 2>&1
-            cf-for-k8s-with-metrics/hack/confirm-network-policy.sh '((ci_k8s_gke_cluster_name))' '((ci_k8s_gcp_project_zone))'
-            echo "Generating install values..."
-            cf-for-k8s-with-metrics/hack/generate-values.sh -d "${DNS_DOMAIN}" -g sa.json > vars/cf-install-values.yml
-            echo "Installing CF..."
-            ytt -f cf-for-k8s-with-metrics/config -f vars/cf-install-values.yml > /tmp/cf-for-k8s-rendered.yml
-            kapp deploy -a cf -f /tmp/cf-for-k8s-rendered.yml -y
-            bosh interpolate --path /cf_admin_password vars/cf-install-values.yml > env-metadata/cf-admin-password.txt
-            echo "${DNS_DOMAIN}" > env-metadata/dns-domain.txt
-            echo "Configuring DNS..."
-            metric-proxy/hack/update_dns.sh "${DNS_DOMAIN}" "${DNS_ZONE_NAME}"
-    - put: denver-metric-proxy-pipeline-vars
+      input_mapping:
+        cf-for-k8s: cf-for-k8s-main
+
+    - put: ready-pool
       params:
-        data: vars
-    - task: run-smoke-test
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
-        inputs:
-          - name: cf-for-k8s-with-metrics
-          - name: env-metadata
-        run:
-          path: /bin/sh
-          args:
-          - -ec
-          - |
-            DNS_DOMAIN=$(cat env-metadata/dns-domain.txt)
-            export SMOKE_TEST_API_ENDPOINT="https://api.${DNS_DOMAIN}"
-            export SMOKE_TEST_APPS_DOMAIN=apps."${DNS_DOMAIN}"
-            export SMOKE_TEST_USERNAME=admin
-            export SMOKE_TEST_PASSWORD=$(cat env-metadata/cf-admin-password.txt)
-            export SMOKE_TEST_SKIP_SSL=true
-            cf-for-k8s-with-metrics/hack/run-smoke-tests.sh
+        acquire: true
+
+    - task: install-cf
+      file: cf-for-k8s-ci/ci/tasks/install-cf-on-gke/task.yml
+      input_mapping:
+        pool-lock: ready-pool
+        cf-for-k8s: cf-for-k8s-with-metrics
+      params:
+        GCP_SERVICE_ACCOUNT_JSON: ((ci_k8s_gcp_service_account_json))
+        GCP_PROJECT_NAME: ((ci_k8s_gcp_project_name))
+        GCP_PROJECT_ZONE: ((ci_k8s_gcp_project_zone))
+        DOMAIN: k8s-dev.relint.rocks
+
+    - task: run-smoke-tests
+      file: cf-for-k8s-ci/ci/tasks/run-smoke-tests/task.yml
+      input_mapping:
+        cf-for-k8s: cf-for-k8s-with-metrics
+      params:
+        SMOKE_TEST_SKIP_SSL: false
+
+    - task: delete-cf
+      file: cf-for-k8s-ci/ci/tasks/delete-cf/task.yml
+      input_mapping:
+        pool-lock: ready-pool
+      params:
+        GCP_PROJECT_NAME: ((ci_k8s_gcp_project_name))
+        GCP_PROJECT_ZONE: ((ci_k8s_gcp_project_zone))
+        GCP_SERVICE_ACCOUNT_JSON: ((ci_k8s_gcp_service_account_json))
+
+    ensure:
+      do:
+      - put: destroy-pool
+        params:
+          add: ready-pool
+
+      - put: ready-pool
+        params:
+          remove: ready-pool
+ 
   - name: metric-proxy-cut-patch
+    public: true
     plan:
     - put: metric-proxy-version
       params: {bump: patch}
   - name: metric-proxy-cut-minor
+    public: true
     plan:
     - put: metric-proxy-version
       params: {bump: minor}
   - name: metric-proxy-cut-major
+    public: true
     plan:
     - put: metric-proxy-version
       params: {bump: major}
   - name: create-release
+    public: true
     plan:
     - in_parallel:
       - get: metric-proxy-main
       - get: metric-proxy
-        passed: ["run-tests-on-cf-for-k8s-pr"]
+        passed: ["test-metric-proxy-bump-on-cf-for-k8s"]
     - task: build-image
       privileged: true
       config:
@@ -273,4 +260,3 @@ jobs:
         - metric-proxy-release/globs/*
         commitish: metric-proxy-release/commitish
         body: metric-proxy-release/body
-
