@@ -7,7 +7,6 @@ Note that metric-proxy does NOT use a develop->main workflow. Commits are pushed
 1. Make sure metric-proxy `main` has what you need.
 1. Head to the [cf-k8s-metric-proxy-validation](https://release-integration.ci.cf-app.com/teams/main/pipelines/cf-k8s-metric-proxy-validation) pipeline and make sure the `test-metric-proxy-bump-on-cf-for-k8s` job is green
 1. Bump the version appropriately using the `metric-proxy-cut-{major|minor|patch}` job.
-    - Note: This will update the metric-proxy/version file and cause the tests to run again
 1. Finish by triggering the create-release job
     - Takes care of OSL and runs `deplab`
     - Updates the `values.yml` file to point to new image sha created in the job

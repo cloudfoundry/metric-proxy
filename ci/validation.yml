@@ -1,13 +1,22 @@
 resources:
-- name: metric-proxy-main
+- name: metric-proxy-main-src
   type: git
   source:
     branch: main
+    uri: git@github.com:cloudfoundry/metric-proxy
     private_key: ((oratos-bot-private-key))
-    uri: git@github.com:cloudfoundry/metric-proxy.git
-    clean_tags: true
-    paths:
+    ignore_paths:
+    - README.md
     - version
+    - docs/**
+    - ci/**
+
+- name: metric-proxy-main-full
+  type: git
+  source:
+    branch: main
+    uri: git@github.com:cloudfoundry/metric-proxy
+    private_key: ((oratos-bot-private-key))
 
 - name: metric-proxy-version
   type: semver
@@ -55,13 +64,6 @@ resources:
     pool: k8s-dev/destroy
     private_key: ((relint_ci_pools_readwrite_deploy_key.private_key))
 
-- name: metric-proxy #HERE
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:cloudfoundry/metric-proxy
-    private_key: ((oratos-bot-private-key))
-
 - name: metric-proxy-docker
   type: docker-image
   source:
@@ -92,20 +94,21 @@ jobs:
     - in_parallel:
       - get: cf-for-k8s-main
       - get: cf-for-k8s-ci
-      - get: metric-proxy
+      - get: metric-proxy-main-src
         trigger: true
       - get: metric-proxy-docker
     # Puts do an implicit check so this builds the image and immediately makes
     # it available to the next task and dockerhub
     - put: metric-proxy-docker
       params:
-        additional_tags: metric-proxy/ci/dockertags
-        dockerfile: metric-proxy/Dockerfile
-        build: metric-proxy
+        additional_tags: metric-proxy-main-src/ci/dockertags
+        dockerfile: metric-proxy-main-src/Dockerfile
+        build: metric-proxy-main-src
     - task: update-values-and-vendir-metrics
-      file: metric-proxy/ci/tasks/update-values-and-vendir-metrics.yml
+      file: metric-proxy-main-src/ci/tasks/update-values-and-vendir-metrics.yml
       input_mapping:
         cf-for-k8s: cf-for-k8s-main
+        metric-proxy: metric-proxy-main-src
 
     - put: ready-pool
       params:
@@ -167,9 +170,7 @@ jobs:
     public: true
     plan:
     - in_parallel:
-      - get: metric-proxy-main
-      - get: metric-proxy
-        passed: ["test-metric-proxy-bump-on-cf-for-k8s"]
+      - get: metric-proxy-main-full
     - task: build-image
       privileged: true
       config:
@@ -179,7 +180,7 @@ jobs:
           source:
             repository: vito/oci-build-task
         inputs:
-        - name: metric-proxy
+        - name: metric-proxy-main-full
           path: .
         outputs:
         - name: image
@@ -187,7 +188,7 @@ jobs:
           path: build
     - task: add-osl-labels
       input_mapping:
-        source-repository: metric-proxy
+        source-repository: metric-proxy-main-full
       config:
         platform: linux
         image_resource:
@@ -207,7 +208,7 @@ jobs:
     - put: metric-proxy-image
       params:
         image: labeled-image/image.tar
-        additional_tags: metric-proxy-main/version
+        additional_tags: metric-proxy-main-full/version
     - task: prepare-release
       config:
         platform: linux
@@ -215,10 +216,9 @@ jobs:
           type: docker-image
           source: {repository: relintdockerhubpushbot/cf-for-k8s-ci}
         inputs:
-          - name: metric-proxy
+          - name: metric-proxy-main-full
           - name: labeled-image
           - name: metric-proxy-image
-          - name: metric-proxy-main
         outputs:
           - name: metric-proxy-release
         run:
@@ -227,20 +227,23 @@ jobs:
           - -ce
           - |
             new_metric_proxy_image_digest=$(cat metric-proxy-image/digest)
-            version=$(cat metric-proxy-main/version)
+            version=$(cat metric-proxy-main-full/version)
 
             echo $version > metric-proxy-release/name
 
-            pushd metric-proxy
+            pushd metric-proxy-main-full
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
-              source metric-proxy/hack/helpers.sh
+              source ./ci/helpers/docker-in-docker.sh
+              start_docker 3 3 "" ""
+
+              source ./hack/helpers.sh
               updateConfigValues "metric-proxy@${new_metric_proxy_image_digest}" "metric_proxy"
               sed -i "s|version:.*|version: $version|" config/values.yml
             popd
 
             mkdir metric-proxy-release/globs
-            cp metric-proxy/config/* metric-proxy-release/globs/
+            cp metric-proxy-main-full/config/* metric-proxy-release/globs/
 
             cat << EOF > metric-proxy-release/body
             ### Changelog
