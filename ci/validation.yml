@@ -6,10 +6,10 @@ resource_types:
     tag: latest
 
 resources:
-- name: metric-proxy-master-version
+- name: metric-proxy-main
   type: git
   source:
-    branch: master
+    branch: main
     private_key: ((oratos-bot-private-key))
     uri: git@github.com:cloudfoundry/metric-proxy.git
     clean_tags: true
@@ -19,7 +19,7 @@ resources:
 - name: metric-proxy-version
   type: semver
   source:
-    branch: master
+    branch: main
     driver: git
     file: version
     private_key: ((oratos-bot-private-key))
@@ -32,10 +32,10 @@ resources:
     uri: git@github.com:cloudfoundry/cf-for-k8s
     private_key: ((oratos-bot-private-key))
 
-- name: metric-proxy
+- name: metric-proxy #HERE
   type: git
   source:
-    branch: master
+    branch: main
     uri: git@github.com:cloudfoundry/metric-proxy
     private_key: ((oratos-bot-private-key))
 
@@ -180,7 +180,7 @@ jobs:
   - name: create-release
     plan:
     - in_parallel:
-      - get: metric-proxy-master-version
+      - get: metric-proxy-main
       - get: metric-proxy
         passed: ["run-tests-on-cf-for-k8s-pr"]
     - task: build-image
@@ -220,7 +220,7 @@ jobs:
     - put: metric-proxy-image
       params:
         image: labeled-image/image.tar
-        additional_tags: metric-proxy-master-version/version
+        additional_tags: metric-proxy-main/version
     - task: prepare-release
       config:
         platform: linux
@@ -231,7 +231,7 @@ jobs:
           - name: metric-proxy
           - name: labeled-image
           - name: metric-proxy-image
-          - name: metric-proxy-master-version
+          - name: metric-proxy-main
         outputs:
           - name: metric-proxy-release
         run:
@@ -240,7 +240,7 @@ jobs:
           - -ce
           - |
             new_metric_proxy_image_digest=$(cat metric-proxy-image/digest)
-            version=$(cat metric-proxy-master-version/version)
+            version=$(cat metric-proxy-main/version)
 
             echo $version > metric-proxy-release/name
 
