@@ -1,12 +1,6 @@
 # metric-proxy
 
-The metric-proxy acts as a translation layer between the Kubernetes Metrics
-Server and CAPI for use in
-[cf-for-k8s](https://github.com/cloudfoundry/cf-for-k8s). When a request comes
-into the metric-proxy the proxy will make a request to the Kube API and format
-the results to match the existing [log-cache API](https://github.com/cloudfoundry/log-cache)
-This ensures developers can get metrics from existing versions of the cf cli
-when running commands `cf push` and  `cf app`.
+The metric-proxy acts as a translation layer between the Kubernetes Metrics Server and CAPI for use in [cf-for-k8s](https://github.com/cloudfoundry/cf-for-k8s). When a request comes into the metric-proxy the proxy will make a request to the Kube API and format the results to match the existing [log-cache API](https://github.com/cloudfoundry/log-cache-release/blob/develop/src/README.md). This ensures developers can get metrics from existing versions of the `cf` cli. when running commands `cf push` and  `cf app`.
 
 ## Usage
 
@@ -90,8 +84,7 @@ will always return 0 as there is no equivalent pod metric in Kubernetes.
 There are several scripts to help automate building and deploying new versions
 of `metric-proxy`.
 
-`./hack/build-dev-image.sh` — runs tests and builds and pushes a new docker image to
-`oratos/metric-proxy:dev`
+`./hack/build-dev-image.sh` — runs tests and builds and pushes a new docker image to `cloudfoundry/metric-proxy:dev`
 
 `./hack/bump-cf-for-k8s.sh` - updates the vendired metric-proxy
 directory in the `cf-for-k8s` repo with any changes made to metric-proxy
@@ -105,10 +98,9 @@ deployment using CF CLI v7
 
 Confirm metric-proxy works by following steps in the Usage section.
 
-See [Concourse CI](https://loggregator.ci.cf-app.com/teams/main/pipelines/metric-proxy).
+See Concourse CI: [cf-k8s-metric-proxy-validation](https://release-integration.ci.cf-app.com/teams/main/pipelines/cf-k8s-metric-proxy-validation)
 
 ## Have a question or feedback, reach out to us
 
-Reach out to us in the Cloud Foundry Slack channel [#logging-and-metrics](https://cloudfoundry.slack.com/archives/CUW93AF3M).
-To request a response during Mountain Time business hours, tag your message
-with @interrupt.
+Reach out to us in the Cloud Foundry Slack channel [#cf-for-k8s](https://cloudfoundry.slack.com/archives/CH9LF6V1P)
+
