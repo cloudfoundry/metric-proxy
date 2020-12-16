@@ -166,7 +166,7 @@ jobs:
     plan:
     - put: metric-proxy-version
       params: {bump: major}
-  - name: create-release-dev
+  - name: create-release
     public: true
     plan:
     - in_parallel:
