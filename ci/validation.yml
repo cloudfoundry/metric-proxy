@@ -67,8 +67,8 @@ resources:
 - name: metric-proxy-docker
   type: docker-image
   source:
-    username: ((oratos-docker.username))
-    password: ((oratos-docker.password))
+    username: ((dockerhub.username))
+    password: ((dockerhub.password))
     repository: cloudfoundry/metric-proxy
     tag: pipeline-test
 
@@ -76,8 +76,8 @@ resources:
   type: registry-image
   source:
     repository: cloudfoundry/metric-proxy
-    username: ((oratos-docker.username))
-    password: ((oratos-docker.password))
+    username: ((dockerhub.username))
+    password: ((dockerhub.password))
 
 - name: metric-proxy-github-release
   type: github-release
