@@ -11,7 +11,7 @@ Note that metric-proxy does NOT use a develop->main workflow. Commits are pushed
     - Takes care of OSL and runs `deplab`
     - Updates the `values.yml` file to point to new image sha created in the job
 1. Head to [metric-proxy releases](https://github.com/cloudfoundry/metric-proxy/releases) and edit the new draft release. Add relevant release notes and then publish the release.
-    - This pushes the docker image with the corresponding release version tag
+    - Note: the `values.yml` Asset on the release contains the updated metric-proxy image.
 
 ### Pipeline resources
 * The pipeline is flown to https://release-integration.ci.cf-app.com/teams/main/pipelines/cf-k8s-metric-proxy-validation via `cd ~/workspace/metric-proxy && ./ci/configure`
