@@ -235,11 +235,11 @@ jobs:
             pushd metric-proxy-main-full
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
+              trap "pkill dockerd" EXIT
               start-docker >/tmp/docker.log 2>&1 &
-              echo "waiting for docker to come up..."
-              until docker info >/dev/null 2>&1; do
-                sleep 5
-              done
+              echo 'until docker info; do sleep 5; done' >/usr/local/bin/wait_for_docker
+              chmod +x /usr/local/bin/wait_for_docker
+              timeout 300 wait_for_docker
 
               source ./hack/helpers.sh
               updateConfigValues "metric-proxy@${new_metric_proxy_image_digest}" "metric_proxy"
