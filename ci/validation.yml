@@ -215,7 +215,7 @@ jobs:
         platform: linux
         image_resource:
           type: docker-image
-          source: {repository: relintdockerhubpushbot/cf-for-k8s-dind}
+          source: {repository: cloudfoundry/cf-for-k8s-dind}
         inputs:
           - name: metric-proxy-main-full
           - name: labeled-image
