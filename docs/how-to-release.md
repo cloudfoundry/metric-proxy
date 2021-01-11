@@ -17,8 +17,14 @@ Note that metric-proxy does NOT use a develop->main workflow. Commits are pushed
 * The pipeline is flown to https://release-integration.ci.cf-app.com/teams/main/pipelines/cf-k8s-metric-proxy-validation via `cd ~/workspace/metric-proxy && ./ci/configure`
 * Yaml config lives in https://github.com/cloudfoundry/metric-proxy/blob/main/ci/validation.yml
 
-### TODO Document/automate creation of statsd_exporter image
+### Building images
 
-[story link](https://www.pivotaltracker.com/story/show/176179500)
+#### statsd_exporter
+This image is built in Concourse; however, we do not automate bumping this image in wherever it is used in `cf-for-k8s`.
+As a result, you will have to check to see if this job has ran since you last updated the `statsd_exporter` image reference in `cf-for-k8s`: https://release-integration.ci.cf-app.com/teams/main/pipelines/build-component-images/jobs/build-statsd_exporter-cf-for-k8s-image/
 
-https://github.com/cloudfoundry/cf-k8s-prometheus/blob/master/exporters/statsd_exporter/Dockerfile
+1. Grab the image reference output from the latest build: https://release-integration.ci.cf-app.com/teams/main/pipelines/build-component-images/jobs/build-statsd_exporter-cf-for-k8s-image/
+1. Update the reference in the following file with that new image reference: https://github.com/cloudfoundry/cf-for-k8s/blob/develop/config/values/10-images.yml
+    - To validate that a new image is indeed ready to be bumped, the image reference from the latest Concourse build should **not** match the reference in this file
+1. Commit those changes and make a PR back to `cf-for-k8s` for it to be merged in
+
