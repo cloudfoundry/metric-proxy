@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -euxo pipefail
 
 # this is the CI version of updateConfigValues
 imageRef="$(cat metric-proxy-docker/repository)@$(cat metric-proxy-docker/digest)"

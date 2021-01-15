@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 CF_CLI=${CF_CLI:-cf7} # or cf
 
 zone_name=${1:-sloans-lake}

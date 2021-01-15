@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -euxo pipefail
 
 # this is the local version of ci/tasks/vendir-metrics.sh
 CF_FOR_K8s_DIR="${CF_FOR_K8s_DIR:-${HOME}/workspace/cf-for-k8s/}"

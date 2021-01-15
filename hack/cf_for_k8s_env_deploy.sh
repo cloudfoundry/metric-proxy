@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 zone_name=${1:-sloans-lake}
 gcp_key=${2:-/tmp/sa.json}
