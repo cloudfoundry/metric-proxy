@@ -1,8 +1,15 @@
 FROM golang:1.13 as builder
 
-COPY / /metric-proxy/
+RUN mkdir /metric-proxy
+WORKDIR /metric-proxy
 
-RUN cd /metric-proxy && make
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
+
+COPY . .
+RUN make
 
 FROM ubuntu:bionic
 
