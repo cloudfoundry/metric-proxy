@@ -185,16 +185,39 @@ func TestDiskUsageFetcher(t *testing.T) {
 		)))
 	})
 
+	t.Run("refreshing the cache when the pod metrics can't be found", func(t *testing.T) {
+		init()
+		returnedPod = podResult
+
+		setUp(t)
+		nodeStatter.SummaryReturnsOnCall(1, nodeResult, nil)
+
+		// populate the node cache with empty results
+		_, err := fetcher.DiskUsage("my-pod")
+		g.Expect(err).To(HaveOccurred())
+
+		usage, err := fetcher.DiskUsage("my-pod")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(usage).To(BeNumerically("==", 1234))
+	})
+
+	t.Run("when cache is refreshed for a missing pod, but pod still isn't found, it errors", func(t *testing.T) {
+		init()
+		returnedPod = podResult
+
+		setUp(t)
+
+		// populate the node cache with empty results
+		_, err := fetcher.DiskUsage("my-pod")
+		g.Expect(err).To(HaveOccurred())
+
+		_, err = fetcher.DiskUsage("my-pod")
+		g.Expect(err).To(MatchError(`disk usage for pod "my-pod" not found`))
+	})
+
 	t.Run("returning an error when the pod metrics don't exist", func(t *testing.T) {
 		init()
-		returnedPod = &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "my-pod",
-			},
-			Spec: corev1.PodSpec{
-				NodeName: "my-node",
-			},
-		}
+		returnedPod = podResult
 
 		setUp(t)
 

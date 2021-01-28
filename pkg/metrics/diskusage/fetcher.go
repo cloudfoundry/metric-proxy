@@ -46,19 +46,35 @@ func (f *Fetcher) DiskUsage(podName string) (int64, error) {
 		return 0, fmt.Errorf("failed to retrieve pod: %w", err)
 	}
 
-	var summary NodeDiskUsage
-	cached, ok := f.nodeCache.Get(pod.Spec.NodeName)
-	if ok {
-		return calculatePodDiskUsage(podName, cached.(NodeDiskUsage))
+	if cached, ok := f.nodeCache.Get(pod.Spec.NodeName); ok {
+		diskUsage, err := calculatePodDiskUsage(podName, cached.(NodeDiskUsage))
+		if err != nil {
+			return f.calculateFreshUsage(pod.Spec.NodeName, podName)
+		}
+
+		return diskUsage, nil
 	}
 
-	summary, err = f.nodeStatter.Summary(pod.Spec.NodeName)
+	return f.calculateFreshUsage(pod.Spec.NodeName, podName)
+}
+
+func (f *Fetcher) calculateFreshUsage(nodeName, podName string) (int64, error) {
+	summary, err := f.fetchAndCacheStats(nodeName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve node summary: %w", err)
 	}
-	f.nodeCache.Set(pod.Spec.NodeName, summary, f.nodeCacheTTL)
 
 	return calculatePodDiskUsage(podName, summary)
+}
+
+func (f *Fetcher) fetchAndCacheStats(nodeName string) (NodeDiskUsage, error) {
+	summary, err := f.nodeStatter.Summary(nodeName)
+	if err != nil {
+		return NodeDiskUsage{}, err
+	}
+	f.nodeCache.Set(nodeName, summary, f.nodeCacheTTL)
+
+	return summary, nil
 }
 
 func calculatePodDiskUsage(podName string, summary NodeDiskUsage) (int64, error) {
