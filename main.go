@@ -11,20 +11,22 @@ import (
 	"code.cloudfoundry.org/go-envstruct"
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 	"code.cloudfoundry.org/metric-proxy/pkg/metrics"
+	"code.cloudfoundry.org/metric-proxy/pkg/metrics/diskusage"
 
 	metricRegistry "code.cloudfoundry.org/go-metric-registry"
 	"google.golang.org/grpc"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 var (
-	version = "dev-build"
+	version          = "dev-build"
 	requestDurations metricRegistry.Histogram
 )
-
 
 func main() {
 	loggr := log.New(os.Stderr, "", log.LstdFlags)
@@ -45,14 +47,16 @@ func main() {
 	if err != nil {
 		loggr.Fatalf("cannot initialize metric fetcher: %v", err)
 	}
-	c := &metrics.Proxy{
-		GetMetrics:           fetcher,
-		AddEmptyDiskEnvelope: true,
+
+	diskUsageFetcher, err := createDiskUsageFetcher(cfg)
+	if err != nil {
+		loggr.Fatalf("cannot initialize disk usage fetcher: %v", err)
 	}
+
+	c := metrics.NewProxy(loggr, fetcher, diskUsageFetcher)
 	setupAndStartMetricServer(loggr)
 
-	var s *grpc.Server
-	s = grpc.NewServer(
+	s := grpc.NewServer(
 		grpc.UnaryInterceptor(requestTimer),
 	)
 	logcache_v1.RegisterEgressServer(s, c)
@@ -83,19 +87,18 @@ func requestTimer(ctx context.Context,
 	req interface{},
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler) (interface{}, error) {
-
 	start := time.Now()
 
 	h, err := handler(ctx, req)
 
-	d := time.Now().Sub(start)
+	d := time.Since(start)
 
 	requestDurations.Observe(d.Seconds())
 
 	return h, err
 }
 
-func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
+func createMetricsFetcher(cfg *Config) (metrics.MetricsFetcherFn, error) {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -112,4 +115,28 @@ func createMetricsFetcher(cfg *Config) (metrics.Fetcher, error) {
 			TimeoutSeconds: &cfg.QueryTimeout,
 		})
 	}, nil
+}
+
+func createDiskUsageFetcher(cfg *Config) (metrics.DiskUsageFetcher, error) {
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeCacheTTL, err := time.ParseDuration(cfg.NodeCacheTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	return diskusage.NewFetcher(
+		cache.NewExpiring(),
+		nodeCacheTTL,
+		diskusage.NewPodGetter(clientSet.CoreV1().Pods(cfg.Namespace)),
+		diskusage.NewNodeStatter(clientSet.CoreV1().RESTClient()),
+	), nil
 }

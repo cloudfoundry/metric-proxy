@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -14,17 +16,36 @@ import (
 	"code.cloudfoundry.org/log-cache/pkg/rpc/logcache_v1"
 )
 
-type Fetcher func(guid string) (*v1beta1.PodMetricsList, error)
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
+//counterfeiter:generate . DiskUsageFetcher
+
+type DiskUsageFetcher interface {
+	DiskUsage(podName string) (int64, error)
+}
+
+type MetricsFetcherFn func(guid string) (*v1beta1.PodMetricsList, error)
 
 type Proxy struct {
-	GetMetrics           Fetcher
-	AddEmptyDiskEnvelope bool
+	logger           *log.Logger
+	metricsFetcherFn MetricsFetcherFn
+	diskUsageFetcher DiskUsageFetcher
+}
+
+func NewProxy(logger *log.Logger, metricsFetcherFn MetricsFetcherFn, diskUsageFetcher DiskUsageFetcher) *Proxy {
+	return &Proxy{
+		logger:           logger,
+		metricsFetcherFn: metricsFetcherFn,
+		diskUsageFetcher: diskUsageFetcher,
+	}
 }
 
 func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache_v1.ReadResponse, error) {
 	var envelopes []*loggregator_v2.Envelope
-	podMetrics, err := m.GetMetrics(req.SourceId)
+
+	podMetrics, err := m.metricsFetcherFn(req.SourceId)
 	if err != nil {
+		m.logger.Printf("failed to get metrics: %v", err)
 		return nil, err
 	}
 
@@ -36,19 +57,16 @@ func (m *Proxy) Read(_ context.Context, req *logcache_v1.ReadRequest) (*logcache
 				m.createLoggregatorEnvelope(
 					req,
 					m.createGaugeMap(v1.ResourceName(k), v),
-					getInstanceId(podMetric),
+					getInstanceID(podMetric),
 				),
 			)
 		}
 
-		if m.AddEmptyDiskEnvelope {
-			envelopes = append(envelopes,
-				m.createEmptyDiskEnvelope(
-					req,
-					getInstanceId(podMetric),
-				),
-			)
+		diskEnvelope, err := m.createDiskEnvelope(req, podMetric)
+		if err != nil {
+			return nil, fmt.Errorf("failed getting disk usage: %w", err)
 		}
+		envelopes = append(envelopes, diskEnvelope)
 	}
 
 	resp := &logcache_v1.ReadResponse{
@@ -93,26 +111,33 @@ func isIstio(podName string) bool {
 	return b
 }
 
-func (m *Proxy) createEmptyDiskEnvelope(req *logcache_v1.ReadRequest, instanceId string) *loggregator_v2.Envelope {
+func (m *Proxy) createDiskEnvelope(req *logcache_v1.ReadRequest, podMetric v1beta1.PodMetrics) (*loggregator_v2.Envelope, error) {
+	instanceID := getInstanceID(podMetric)
+
+	podDiskUsage, err := m.diskUsageFetcher.DiskUsage(podMetric.Name)
+	if err != nil {
+		m.logger.Printf("error fetching disk usage: %v", err)
+		return nil, err
+	}
+
 	return m.createLoggregatorEnvelope(
 		req,
 		m.createGaugeMap(
-			"disk", *resource.NewQuantity(0, "BinarySI"),
+			"disk", *resource.NewQuantity(podDiskUsage, "BinarySI"),
 		),
-		instanceId,
-	)
+		instanceID,
+	), nil
 }
 
 func (m *Proxy) createLoggregatorEnvelope(
 	req *logcache_v1.ReadRequest,
 	gauges map[string]*loggregator_v2.GaugeValue,
-	instanceId string,
+	instanceID string,
 ) *loggregator_v2.Envelope {
-
 	return &loggregator_v2.Envelope{
 		Timestamp:  time.Now().UnixNano(),
 		SourceId:   req.GetSourceId(),
-		InstanceId: instanceId,
+		InstanceId: instanceID,
 		Tags: map[string]string{
 			"process_id": req.GetSourceId(),
 			"origin":     "rep",
@@ -126,7 +151,7 @@ func (m *Proxy) createLoggregatorEnvelope(
 }
 
 func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[string]*loggregator_v2.GaugeValue {
-	var gauges = map[string]*loggregator_v2.GaugeValue{}
+	gauges := map[string]*loggregator_v2.GaugeValue{}
 
 	switch v.Format {
 	case "BinarySI":
@@ -147,7 +172,7 @@ func (m *Proxy) createGaugeMap(k v1.ResourceName, v resource.Quantity) map[strin
 	return gauges
 }
 
-func getInstanceId(podMetric v1beta1.PodMetrics) string {
+func getInstanceID(podMetric v1beta1.PodMetrics) string {
 	s := strings.Split(podMetric.Name, "-")
 	return s[len(s)-1]
 }

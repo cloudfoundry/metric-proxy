@@ -9,11 +9,11 @@ require (
 	code.cloudfoundry.org/log-cache v2.3.1+incompatible
 	code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2 // indirect
-	github.com/onsi/gomega v1.7.0
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
+	github.com/onsi/gomega v1.10.3
 	github.com/prometheus/client_golang v1.5.1 // indirect
-	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
+	golang.org/x/net v0.0.0-20201026091529-146b70c837a4
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b // indirect
 	google.golang.org/grpc v1.27.0
