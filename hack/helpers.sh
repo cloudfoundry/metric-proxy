@@ -12,7 +12,7 @@ function updateConfigValues {
 
     docker pull $DOCKER_ORG/$taggedImage
     imageRef="$(docker image inspect $DOCKER_ORG/$taggedImage --format '{{index .RepoDigests 0}}')"
-    sed -i'' -e "s| $yttValuesRef:.*| $yttValuesRef: \"$imageRef\"|" ${REPO_DIR}/config/values.yml
+    sed -i'' -e "s| $yttValuesRef:.*| $yttValuesRef: \"$imageRef\"|" ${REPO_DIR}/config/values/images.yml
 }
 
 function buildAndReplaceImage {

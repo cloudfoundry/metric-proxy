@@ -24,7 +24,7 @@ This image is built in Concourse; however, we do not automate bumping this image
 As a result, you will have to check to see if this job has ran since you last updated the `statsd_exporter` image reference in `cf-for-k8s`: https://release-integration.ci.cf-app.com/teams/main/pipelines/build-component-images/jobs/build-statsd_exporter-cf-for-k8s-image/
 
 1. Grab the image reference output from the latest build: https://release-integration.ci.cf-app.com/teams/main/pipelines/build-component-images/jobs/build-statsd_exporter-cf-for-k8s-image/
-1. Update the reference in the following file with that new image reference: https://github.com/cloudfoundry/cf-for-k8s/blob/develop/config/values/10-images.yml
+1. Update the reference in the following file with that new image reference: https://github.com/cloudfoundry/cf-for-k8s/blob/develop/config/values/images.yml
     - To validate that a new image is indeed ready to be bumped, the image reference from the latest Concourse build should **not** match the reference in this file
 1. Commit those changes and make a PR back to `cf-for-k8s` for it to be merged in
 

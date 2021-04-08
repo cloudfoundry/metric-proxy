@@ -1,0 +1,6 @@
+#@ load("@ytt:overlay", "overlay")
+#@data/values
+---
+#@overlay/match missing_ok=True
+images:
+  metric_proxy: #! This is intentionally blank

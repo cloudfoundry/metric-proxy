@@ -243,7 +243,7 @@ jobs:
 
               source ./hack/helpers.sh
               updateConfigValues "metric-proxy@${new_metric_proxy_image_digest}" "metric_proxy"
-              sed -i "s|version:.*|version: $version|" config/values.yml
+              sed -i "s|version:.*|version: $version|" config/values/_defaults.yml
             popd
 
             mkdir metric-proxy-release/globs
