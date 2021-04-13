@@ -247,7 +247,7 @@ jobs:
             popd
 
             mkdir metric-proxy-release/globs
-            cp metric-proxy-main-full/config/* metric-proxy-release/globs/
+            cp metric-proxy-main-full/config/*.yml metric-proxy-main-full/config/values/*.yml metric-proxy-release/globs/
 
             cat << EOF > metric-proxy-release/body
             ### Changelog
