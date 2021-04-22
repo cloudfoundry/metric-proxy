@@ -1,3 +1,15 @@
+groups:
+  - name: tests
+    jobs:
+      - metric-proxy-unit-tests
+      - test-metric-proxy-bump-on-cf-for-k8s
+  - name: ship-it
+    jobs:
+      - metric-proxy-cut-major
+      - metric-proxy-cut-minor
+      - metric-proxy-cut-patch
+      - create-metric-proxy-release
+
 resources:
 - name: metric-proxy-main-src
   type: git
@@ -88,6 +100,31 @@ resources:
     drafts: true
 
 jobs:
+  - name: metric-proxy-unit-tests
+    public: true
+    plan:
+    - in_parallel:
+      - get: metric-proxy-main-src
+        trigger: true
+    - task: run-metric-proxy-unit-tests
+      input_mapping:
+        metric-proxy: metric-proxy-main-src
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: cloudfoundry/cf-for-k8s-ci
+        inputs:
+        - name: metric-proxy
+        run:
+          path: bash
+          args:
+          - -euc
+          - |
+            cd metric-proxy
+            go test -v ./pkg/...
+
   - name: test-metric-proxy-bump-on-cf-for-k8s
     public: true
     plan:
@@ -96,6 +133,8 @@ jobs:
       - get: cf-for-k8s-ci
       - get: metric-proxy-main-src
         trigger: true
+        passed:
+          - metric-proxy-unit-tests
       - get: metric-proxy-docker
     # Puts do an implicit check so this builds the image and immediately makes
     # it available to the next task and dockerhub
@@ -156,16 +195,19 @@ jobs:
     plan:
     - put: metric-proxy-version
       params: {bump: patch}
+
   - name: metric-proxy-cut-minor
     public: true
     plan:
     - put: metric-proxy-version
       params: {bump: minor}
+
   - name: metric-proxy-cut-major
     public: true
     plan:
     - put: metric-proxy-version
       params: {bump: major}
+
   - name: create-metric-proxy-release
     public: true
     plan:
