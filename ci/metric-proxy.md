@@ -4,6 +4,9 @@
 This pipeline serves two purposes: testing changes and cutting releases/images
 in the [cf-k8s-metric-proxy CI pipeline](https://release-integration.ci.cf-app.com/teams/main/pipelines/cf-k8s-metric-proxy).
 
+## metric-proxy-unit-tests
+Runs all the Golang unit tests in the `metric-proxy` source.
+
 ## test-metric-proxy-bump-on-cf-for-k8s job
 This is an integration test to ensure that metric-proxy changes work on top of cf-for-k8s main branch. This is done via
 the [smoke-tests](https://github.com/cloudfoundry/cf-for-k8s/blob/develop/tests/smoke/smoke_test.go).
