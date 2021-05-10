@@ -1,4 +1,4 @@
-FROM golang:1.14.2 as build
+FROM golang:1.16 as build
 
 RUN mkdir /workspace
 WORKDIR /workspace
