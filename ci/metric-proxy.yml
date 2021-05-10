@@ -189,7 +189,7 @@ jobs:
       - put: ready-pool
         params:
           remove: ready-pool
- 
+
   - name: metric-proxy-cut-patch
     public: true
     plan:
@@ -213,6 +213,37 @@ jobs:
     plan:
     - in_parallel:
       - get: metric-proxy-main-full
+    - task: generate-image-labels-file
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: cloudfoundry/cf-for-k8s-ci
+        inputs:
+        - name: metric-proxy-main-full
+        outputs:
+        - name: metric-proxy-labels
+        run:
+          path: /bin/bash
+          args:
+          - -c
+          - |
+            set -euo pipefail
+            function parse_git_source() {
+              pushd metric-proxy-main-full >/dev/null
+                git remote get-url origin
+              popd >/dev/null
+            }
+
+            # Manually parse revision info from input git resource
+            git_ref=$(cat metric-proxy-main-full/.git/ref)
+            git_source=$(parse_git_source)
+
+            cat <<EOF > metric-proxy-labels/oci-image-labels
+            org.opencontainers.image.revision=${git_ref}
+            org.opencontainers.image.source=${git_source}
+            EOF
     - task: build-image
       privileged: true
       config:
@@ -223,33 +254,17 @@ jobs:
             repository: vito/oci-build-task
         inputs:
         - name: metric-proxy-main-full
-          path: .
+        - name: metric-proxy-labels
         outputs:
         - name: image
+        params:
+          CONTEXT: metric-proxy-main-full
+          LABELS_FILE: metric-proxy-labels/oci-image-labels
         run:
           path: build
-    - task: add-osl-labels
-      input_mapping:
-        source-repository: metric-proxy-main-full
-      config:
-        platform: linux
-        image_resource:
-          type: registry-image
-          source:
-            repository: pivotalcfreleng/tas-for-k8s-ci
-        inputs:
-        - name: image
-        - name: source-repository
-        outputs:
-        - name: labeled-image
-        run:
-          path: bash
-          args:
-          - -euc
-          - deplab --image-tar image/image.tar --git source-repository --output-tar "labeled-image/image.tar"
     - put: metric-proxy-image
       params:
-        image: labeled-image/image.tar
+        image: image/image.tar
         additional_tags: metric-proxy-main-full/version
     - task: prepare-release
       privileged: true
