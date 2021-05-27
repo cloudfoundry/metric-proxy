@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KBLD_CONFIG_DIR="$(mktemp -d)"
 KBLD_LOCK_FILE="${SCRIPT_DIR}/kbld.lock.yml"
+KBLD_CONFIG_DIR="$(mktemp -d)"
 
 function cleanup() {
   echo "Cleaning up..."

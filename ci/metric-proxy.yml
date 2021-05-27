@@ -2,6 +2,7 @@ groups:
   - name: tests
     jobs:
       - metric-proxy-unit-tests
+      - build-metric-proxy-image
       - test-metric-proxy-bump-on-cf-for-k8s
   - name: ship-it
     jobs:
@@ -11,7 +12,7 @@ groups:
       - create-metric-proxy-release
 
 resources:
-- name: metric-proxy-main-src
+- name: metric-proxy
   type: git
   source:
     branch: main
@@ -22,13 +23,17 @@ resources:
     - version
     - docs/**
     - ci/**
+    - config/values/images.yml
+    - config/values/_defaults.yml
 
-- name: metric-proxy-main-full
+- name: metric-proxy-ci
   type: git
   source:
     branch: main
     uri: git@github.com:cloudfoundry/metric-proxy
     private_key: ((oratos-bot-private-key))
+    paths:
+      - ci
 
 - name: metric-proxy-version
   type: semver
@@ -76,14 +81,6 @@ resources:
     pool: k8s-dev/destroy
     private_key: ((relint_ci_pools_readwrite_deploy_key.private_key))
 
-- name: metric-proxy-docker
-  type: docker-image
-  source:
-    username: ((dockerhub.username))
-    password: ((dockerhub.password))
-    repository: cloudfoundry/metric-proxy
-    tag: pipeline-test
-
 - name: metric-proxy-image
   type: registry-image
   source:
@@ -104,11 +101,9 @@ jobs:
     public: true
     plan:
     - in_parallel:
-      - get: metric-proxy-main-src
+      - get: metric-proxy
         trigger: true
     - task: run-metric-proxy-unit-tests
-      input_mapping:
-        metric-proxy: metric-proxy-main-src
       config:
         platform: linux
         image_resource:
@@ -125,29 +120,33 @@ jobs:
             cd metric-proxy
             go test -v ./pkg/...
 
+  - name: build-metric-proxy-image
+    plan:
+      - in_parallel:
+          - get: metric-proxy
+            trigger: true
+            passed: ["metric-proxy-unit-tests"]
+          - get: metric-proxy-ci
+          - get: metric-proxy-version
+      - task: build-image-and-update-image-ref
+        privileged: true
+        file: metric-proxy-ci/ci/tasks/build-image/task.yml
+      - put: metric-proxy
+        params:
+          repository: updated-metric-proxy
+
   - name: test-metric-proxy-bump-on-cf-for-k8s
     public: true
     plan:
     - in_parallel:
       - get: cf-for-k8s-main
       - get: cf-for-k8s-ci
-      - get: metric-proxy-main-src
+      - get: metric-proxy-ci
+      - get: metric-proxy
         trigger: true
         passed:
-          - metric-proxy-unit-tests
-      - get: metric-proxy-docker
-    # Puts do an implicit check so this builds the image and immediately makes
-    # it available to the next task and dockerhub
-    - put: metric-proxy-docker
-      params:
-        additional_tags: metric-proxy-main-src/ci/dockertags
-        dockerfile: metric-proxy-main-src/Dockerfile
-        build: metric-proxy-main-src
-    - task: update-values-and-vendir-metrics
-      file: metric-proxy-main-src/ci/tasks/update-values-and-vendir-metrics.yml
-      input_mapping:
-        cf-for-k8s: cf-for-k8s-main
-        metric-proxy: metric-proxy-main-src
+          - build-metric-proxy-image
+      - get: metric-proxy-image
 
     - put: ready-pool
       params:
@@ -212,60 +211,8 @@ jobs:
     public: true
     plan:
     - in_parallel:
-      - get: metric-proxy-main-full
-    - task: generate-image-labels-file
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: cloudfoundry/cf-for-k8s-ci
-        inputs:
-        - name: metric-proxy-main-full
-        outputs:
-        - name: metric-proxy-labels
-        run:
-          path: /bin/bash
-          args:
-          - -c
-          - |
-            set -euo pipefail
-            function parse_git_source() {
-              pushd metric-proxy-main-full >/dev/null
-                git remote get-url origin
-              popd >/dev/null
-            }
-
-            # Manually parse revision info from input git resource
-            git_ref=$(cat metric-proxy-main-full/.git/ref)
-            git_source=$(parse_git_source)
-
-            cat <<EOF > metric-proxy-labels/oci-image-labels
-            org.opencontainers.image.revision=${git_ref}
-            org.opencontainers.image.source=${git_source}
-            EOF
-    - task: build-image
-      privileged: true
-      config:
-        platform: linux
-        image_resource:
-          type: registry-image
-          source:
-            repository: vito/oci-build-task
-        inputs:
-        - name: metric-proxy-main-full
-        - name: metric-proxy-labels
-        outputs:
-        - name: image
-        params:
-          CONTEXT: metric-proxy-main-full
-          LABELS_FILE: metric-proxy-labels/oci-image-labels
-        run:
-          path: build
-    - put: metric-proxy-image
-      params:
-        image: image/image.tar
-        additional_tags: metric-proxy-main-full/version
+      - get: metric-proxy
+        passed: ["test-metric-proxy-bump-on-cf-for-k8s"]
     - task: prepare-release
       privileged: true
       config:
@@ -274,9 +221,7 @@ jobs:
           type: docker-image
           source: {repository: cloudfoundry/cf-for-k8s-dind}
         inputs:
-          - name: metric-proxy-main-full
-          - name: labeled-image
-          - name: metric-proxy-image
+          - name: metric-proxy
         outputs:
           - name: metric-proxy-release
         run:
@@ -284,35 +229,23 @@ jobs:
           args:
           - -ce
           - |
-            new_metric_proxy_image_digest=$(cat metric-proxy-image/digest)
-            version=$(cat metric-proxy-main-full/version)
+            version=$(cat metric-proxy/version)
 
             echo $version > metric-proxy-release/name
 
-            pushd metric-proxy-main-full
+            pushd metric-proxy-ci
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
-              trap "pkill dockerd" EXIT
-              start-docker >/tmp/docker.log 2>&1 &
-              echo 'until docker info; do sleep 5; done' >/usr/local/bin/wait_for_docker
-              chmod +x /usr/local/bin/wait_for_docker
-              timeout 300 wait_for_docker
-
-              source ./hack/helpers.sh
-              updateConfigValues "metric-proxy@${new_metric_proxy_image_digest}" "metric_proxy"
               sed -i "s|version:.*|version: $version|" config/values/_defaults.yml
             popd
 
             mkdir metric-proxy-release/globs
-            cp metric-proxy-main-full/config/*.yml metric-proxy-main-full/config/values/*.yml metric-proxy-release/globs/
+            cp metric-proxy/config/*.yml metric-proxy/config/values/*.yml metric-proxy-release/globs/
 
             cat << EOF > metric-proxy-release/body
             ### Changelog
 
-            **Image SHA**
-            $new_metric_proxy_image_digest
-
-            **Image Tag**
+            **Version**
             $version
 
             EOF
