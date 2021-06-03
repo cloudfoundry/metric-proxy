@@ -8,6 +8,8 @@ image_resource:
 params:
   DOCKERHUB_USERNAME: ((dockerhub.username))
   DOCKERHUB_PASSWORD: ((dockerhub.password))
+  GIT_COMMIT_EMAIL: cf-release-integration@pivotal.io
+  GIT_COMMIT_USERNAME: "relint-ci"
 
 inputs:
   - name: metric-proxy
