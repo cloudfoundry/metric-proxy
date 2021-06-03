@@ -12,7 +12,7 @@ timeout 300 wait_for_docker
 
 metric-proxy/build/build.sh
 
-image_ref="$(yq -r '.overrides[] | select(.image | test("/metric-proxy@")).newImage' metric-proxy/build/kbld.lock.yml)"
+image_ref="$(yq -r '.overrides[] | select(.image | test("/metric-proxy")).newImage' metric-proxy/build/kbld.lock.yml)"
 sed -i'' -e "s| metric_proxy:.*| metric_proxy: \"$image_ref\"|" metric-proxy/config/values/images.yml
 
 pushd metric-proxy > /dev/null
