@@ -3,4 +3,4 @@
 ---
 #@overlay/match missing_ok=True
 images:
-  metric_proxy: #! This is intentionally blank
+  metric_proxy: ""
