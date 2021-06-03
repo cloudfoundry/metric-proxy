@@ -13,10 +13,9 @@ params:
 
 inputs:
   - name: metric-proxy
-  - name: metric-proxy-ci
 
 outputs:
   - name: updated-metric-proxy
 
 run:
-  path: metric-proxy-ci/ci/tasks/build-image/task.sh
+  path: metric-proxy/ci/tasks/build-image/task.sh

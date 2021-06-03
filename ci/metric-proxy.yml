@@ -22,18 +22,8 @@ resources:
     - README.md
     - version
     - docs/**
-    - ci/**
     - config/values/images.yml
     - config/values/_defaults.yml
-
-- name: metric-proxy-ci
-  type: git
-  source:
-    branch: main
-    uri: git@github.com:cloudfoundry/metric-proxy
-    private_key: ((oratos-bot-private-key))
-    paths:
-      - ci
 
 - name: metric-proxy-version
   type: semver
@@ -126,11 +116,10 @@ jobs:
           - get: metric-proxy
             trigger: true
             passed: ["metric-proxy-unit-tests"]
-          - get: metric-proxy-ci
           - get: metric-proxy-version
       - task: build-image-and-update-image-ref
         privileged: true
-        file: metric-proxy-ci/ci/tasks/build-image/task.yml
+        file: metric-proxy/ci/tasks/build-image/task.yml
       - put: metric-proxy
         params:
           repository: updated-metric-proxy
@@ -141,7 +130,6 @@ jobs:
     - in_parallel:
       - get: cf-for-k8s-main
       - get: cf-for-k8s-ci
-      - get: metric-proxy-ci
       - get: metric-proxy
         trigger: true
         passed:
@@ -233,7 +221,7 @@ jobs:
 
             echo $version > metric-proxy-release/name
 
-            pushd metric-proxy-ci
+            pushd metric-proxy
               git rev-parse HEAD > ../metric-proxy-release/commitish
 
               sed -i "s|version:.*|version: $version|" config/values/_defaults.yml
