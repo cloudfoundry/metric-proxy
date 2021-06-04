@@ -12,7 +12,7 @@ groups:
       - create-metric-proxy-release
 
 resources:
-- name: metric-proxy
+- name: metric-proxy-trigger
   type: git
   source:
     branch: main
@@ -24,6 +24,13 @@ resources:
     - docs/**
     - config/values/images.yml
     - config/values/_defaults.yml
+
+- name: metric-proxy
+  type: git
+  source:
+    branch: main
+    uri: git@github.com:cloudfoundry/metric-proxy
+    private_key: ((oratos-bot-private-key))
 
 - name: metric-proxy-version
   type: semver
@@ -91,8 +98,9 @@ jobs:
     public: true
     plan:
     - in_parallel:
-      - get: metric-proxy
+      - get: metric-proxy-trigger
         trigger: true
+      - get: metric-proxy
     - task: run-metric-proxy-unit-tests
       config:
         platform: linux
