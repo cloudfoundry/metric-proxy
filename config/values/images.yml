@@ -3,4 +3,4 @@
 ---
 #@overlay/match missing_ok=True
 images:
-  metric_proxy: "index.docker.io/cloudfoundry/metric-proxy@sha256:02ef0ce3328a7390830515cac008a63abbd42f6e17d9addedcdc8c584c096724"
+  metric_proxy: "index.docker.io/cloudfoundry/metric-proxy@sha256:a711739043d77513b54a20af4871edd255bf468b3605bc62989c5b952e32d133"
