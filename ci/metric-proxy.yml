@@ -22,8 +22,8 @@ resources:
     - README.md
     - version
     - docs/**
+    - ci/**
     - config/values/images.yml
-    - config/values/_defaults.yml
 
 - name: metric-proxy
   type: git
