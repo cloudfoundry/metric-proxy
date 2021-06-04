@@ -131,6 +131,7 @@ jobs:
       - put: metric-proxy
         params:
           repository: updated-metric-proxy
+          rebase: true
 
   - name: test-metric-proxy-bump-on-cf-for-k8s
     public: true
